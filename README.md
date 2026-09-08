@@ -12,7 +12,7 @@ Bot Telegram ini menghasilkan laporan berformat PDF resmi siap cetak (A4 Portrai
 Dihasilkan melalui perintah `/rekap` atau `/pdf [KELAS]`. Menampilkan daftar seluruh siswa dalam rombel, nilai ujian CBT, kriteria KKM, serta penandaan jelas siswa yang belum ujian (*strip merah*).
 
 <p align="center">
-  <img src="docs/preview_rekap_nilai.png" width="85%" alt="Preview Rekap Nilai PDF">
+  <img src="docs/Nilai_8B_ASTS-INFORMATIKA_8.pdf" width="85%" alt="Preview Rekap Nilai PDF">
 </p>
 
 ---
