@@ -1120,8 +1120,10 @@ def handle_git_update(chat_id):
             send_message(chat_id, f"✅ <b>Bot sudah menggunakan versi terbaru!</b>\n<pre>{output}</pre>")
         else:
             send_message(chat_id, f"🚀 <b>Kode berhasil diperbarui dari GitHub!</b>\n<pre>{output[:1500]}</pre>\n\n<i>Merestart layanan bot...</i>")
-            time.sleep(1)
-            subprocess.run(["systemctl", "--user", "restart", "telegram-rekap-bot.service"])
+            if os.geteuid() == 0:
+                subprocess.run(["systemctl", "restart", "telegram-rekap-bot.service"])
+            else:
+                subprocess.run(["systemctl", "--user", "restart", "telegram-rekap-bot.service"])
     except Exception as e:
         send_message(chat_id, f"❌ Gagal melakukan update kode: {e}")
 

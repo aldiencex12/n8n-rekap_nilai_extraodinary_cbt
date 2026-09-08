@@ -46,12 +46,26 @@ else
     echo -e "${GREEN}✅ Browser Chrome/Chromium sudah terpasang.${NC}"
 fi
 
-# 4. Pasang Systemd User Service
-SERVICE_DIR="$HOME/.config/systemd/user"
-SERVICE_NAME="telegram-rekap-bot.service"
+# 4. Pasang Systemd Service (Otomatis deteksi Root vs User biasa)
+if [ "$EUID" -eq 0 ]; then
+    # Jika dijalankan sebagai ROOT di server
+    SERVICE_DIR="/etc/systemd/system"
+    SERVICE_NAME="telegram-rekap-bot.service"
+    SYSTEMCTL_CMD="systemctl"
+    WANTED_BY="multi-user.target"
+    JOURNAL_CMD="journalctl -u $SERVICE_NAME -f"
+else
+    # Jika dijalankan sebagai user biasa (desktop/laptop)
+    SERVICE_DIR="$HOME/.config/systemd/user"
+    SERVICE_NAME="telegram-rekap-bot.service"
+    SYSTEMCTL_CMD="systemctl --user"
+    WANTED_BY="default.target"
+    JOURNAL_CMD="journalctl --user -u $SERVICE_NAME -f"
+fi
+
 mkdir -p "$SERVICE_DIR"
 
-echo -e "${YELLOW}⚙️  Mengonfigurasi layanan background systemd...${NC}"
+echo -e "${YELLOW}⚙️  Mengonfigurasi layanan background systemd di $SERVICE_DIR...${NC}"
 cat <<EOF > "$SERVICE_DIR/$SERVICE_NAME"
 [Unit]
 Description=Telegram Rekap Bot CBT SMP Hang Tuah 5
@@ -66,19 +80,19 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
-WantedBy=default.target
+WantedBy=$WANTED_BY
 EOF
 
-systemctl --user daemon-reload
-systemctl --user enable --now "$SERVICE_NAME"
+$SYSTEMCTL_CMD daemon-reload
+$SYSTEMCTL_CMD enable --now "$SERVICE_NAME"
 
 echo -e "\n${GREEN}=====================================================${NC}"
 echo -e "${GREEN}   🎉 INSTALASI SELESAI & BOT BERHASIL DIAKTIFKAN!   ${NC}"
 echo -e "${GREEN}=====================================================${NC}"
 echo -e "Status Layanan:"
-systemctl --user status "$SERVICE_NAME" --no-pager
+$SYSTEMCTL_CMD status "$SERVICE_NAME" --no-pager
 echo -e "\n${BLUE}💡 Catatan Tambahan:${NC}"
 echo -e "1. Untuk mengganti Token Bot, URL CBT, atau Password, cukup edit file ${YELLOW}.env${NC} lalu restart bot:"
-echo -e "   ${GREEN}systemctl --user restart $SERVICE_NAME${NC}"
+echo -e "   ${GREEN}$SYSTEMCTL_CMD restart $SERVICE_NAME${NC}"
 echo -e "2. Untuk melihat live log bot:"
-echo -e "   ${GREEN}journalctl --user -u $SERVICE_NAME -f${NC}"
+echo -e "   ${GREEN}$JOURNAL_CMD${NC}"
