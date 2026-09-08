@@ -1,0 +1,687 @@
+{
+  "id": "M4gLYCNNU7kyH21c",
+  "name": "My workflow",
+  "active": true,
+  "isArchived": false,
+  "versionId": "f4936f20-cc8f-41bf-8f95-b36219e12390",
+  "activeVersionId": "37ce6534-e753-4c8c-8a1d-a62f55c86e38",
+  "triggerCount": 1,
+  "createdAt": "2026-08-09T16:41:09.330Z",
+  "updatedAt": "2026-09-08T01:47:57.965Z",
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "connections": {
+    "When clicking \u2018Execute workflow\u2019": {
+      "main": [
+        [
+          {
+            "node": "login ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "login ": {
+      "main": [
+        [
+          {
+            "node": "GET Jadwal Aktif",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Jadwal Aktif": {
+      "main": [
+        [
+          {
+            "node": "Ekstrak Daftar Kelas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ekstrak Daftar Kelas": {
+      "main": [
+        [
+          {
+            "node": "GET Hasil Ujian Siswa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET Hasil Ujian Siswa": {
+      "main": [
+        [
+          {
+            "node": "Format Data (+Kelas)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Data (+Kelas)": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML Tabel",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Group CSV per Kelas & Mapel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "login ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate CSV Files": {
+      "main": [
+        []
+      ]
+    },
+    "Group CSV per Kelas & Mapel": {
+      "main": [
+        [
+          {
+            "node": "Generate CSV Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7779a1e5-e4ff-4fac-8ddb-2d51fca7ab6f",
+      "name": "When clicking \u2018Execute workflow\u2019"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://assesment.cbt-smpht5.my.id/api/v1/token/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "admin@shellrean.id"
+            },
+            {
+              "name": "password",
+              "value": "criticalpassword"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "6811dfee-0aa4-45fe-a036-ca6abf9228bd",
+      "name": "login "
+    },
+    {
+      "parameters": {
+        "url": "=https://assesment.cbt-smpht5.my.id/api/v1/jadwals",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "start_date",
+              "value": "={{ $('Webhook Trigger').first().json.query?.date || $today.format('yyyy-MM-dd') }}"
+            },
+            {
+              "name": "end_date",
+              "value": "={{ $('Webhook Trigger').first().json.query?.date || $today.format('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.data.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        464,
+        0
+      ],
+      "id": "8be95df4-c5cf-4532-b9ac-ad24d47a0e95",
+      "name": "GET Jadwal Aktif"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mengambil data dari node GET Jadwal Aktif\nconst jadwalData = $input.first().json.data;\nconst results = [];\nconst jurusanId = \"3e41ce1d-af1b-4d2c-80e1-46f6dd261403\";\n\nfor (const jadwal of jadwalData) {\n    const jadwalId = jadwal.id;\n    const mapel = jadwal.alias;\n    \n    for (const grup of (jadwal.group || [])) {\n        let namaKelas = grup.name;\n        if (namaKelas.startsWith(\"lt-\")) {\n            namaKelas = namaKelas.replace(\"lt-\", \"\");\n        }\n        \n        results.push({\n            json: {\n                mapel: mapel,\n                kelas: namaKelas,\n                group_id: grup.id,\n                jadwal_id: jadwalId,\n                jurusan_ids: jurusanId,\n                page: 1\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "7aa98738-3c19-43d5-a6bd-111929c3356b",
+      "name": "Ekstrak Daftar Kelas"
+    },
+    {
+      "parameters": {
+        "url": "https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians",
+        "sendQuery": true,
+        "specifyQuery": "=keypair",
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "jadwal_id",
+              "value": "={{ $json.jadwal_id }}"
+            },
+            {
+              "name": "group_ids",
+              "value": "={{ $json.group_id }}"
+            },
+            {
+              "name": "jurusan_ids",
+              "value": "={{ $json.jurusan_ids }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('login ').first().json.data.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "id": "a542856e-3282-4bf1-9cf4-97cb7a7fd2ca",
+      "name": "GET Hasil Ujian Siswa"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst items = $input.all(); \n\nfor (let i = 0; i < items.length; i++) {\n    const prevInfo = $(\"Ekstrak Daftar Kelas\").all()[i].json;\n    const kelas = prevInfo.kelas;\n    const mapel = prevInfo.mapel || \"-\";\n    \n    let dataSiswa = [];\n    if (items[i].json.data && Array.isArray(items[i].json.data.data)) {\n        dataSiswa = items[i].json.data.data;\n    } else if (Array.isArray(items[i].json.data)) {\n        dataSiswa = items[i].json.data;\n    } else if (Array.isArray(items[i].json)) {\n        dataSiswa = items[i].json;\n    }\n    \n    for (const peserta of dataSiswa) {\n        let rawNilai = peserta.check_point !== undefined ? peserta.check_point : 0;\n        let finalNilai = rawNilai;\n        if (typeof rawNilai === \"string\") {\n            rawNilai = rawNilai.replace(\",\", \".\").trim();\n        }\n        const num = Number(rawNilai);\n        if (!isNaN(num) && rawNilai !== \"\" && rawNilai !== null) {\n            finalNilai = Math.round(num);\n        }\n        results.push({\n            json: {\n                mata_pelajaran: mapel,\n                kelas: kelas, \n                no_ujian: peserta.peserta ? peserta.peserta.no_ujian : \"-\",\n                nama: peserta.peserta ? peserta.peserta.name : \"-\",\n                nilai: finalNilai\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        0
+      ],
+      "id": "3ef6a767-a5d3-41a0-a533-c77556aed5b8",
+      "name": "Format Data (+Kelas)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mengambil semua 146 data dari node sebelumnya\nconst allData = $input.all().map(item => item.json);\n\n// 1. Mengelompokkan data berdasarkan 'kelas'\nconst groupedData = {};\nfor (const row of allData) {\n    if (!groupedData[row.kelas]) {\n        groupedData[row.kelas] = [];\n    }\n    groupedData[row.kelas].push(row);\n}\n\n// 2. Membuat output HTML untuk masing-masing kelas\nconst output = [];\nfor (const kelas in groupedData) {\n    const siswaList = groupedData[kelas];\n    \n    // Menyusun baris tabel untuk setiap siswa\n    let tableRows = \"\";\n    siswaList.forEach((siswa, index) => {\n        tableRows += `\n        <tr>\n            <td style=\"text-align: center;\">${index + 1}</td>\n            <td>${siswa.no_ujian}</td>\n            <td>${siswa.nama}</td>\n            <td style=\"text-align: center;\">${siswa.hasil_akhir}</td>\n        </tr>`;\n    });\n\n    // Menggabungkan ke dalam template HTML lengkap\n    const html = `\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <style>\n        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; }\n        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }\n        .header h1 { font-size: 20pt; margin: 0 0 5px 0; }\n        .header h2 { font-size: 14pt; margin: 0; font-weight: normal; }\n        table { width: 100%; border-collapse: collapse; margin-top: 10px; }\n        th, td { padding: 8px; border: 1px solid #000; }\n        th { background-color: #2c3e50; color: #fff; text-align: center; }\n        tr:nth-child(even) { background-color: #f9f9f9; }\n    </style>\n    </head>\n    <body>\n        <div class=\"header\">\n            <h1>DAFTAR HASIL UJIAN</h1>\n            <h2>Kelas ${kelas}</h2>\n        </div>\n        <table>\n            <thead>\n                <tr>\n                    <th style=\"width: 5%;\">No</th>\n                    <th style=\"width: 25%;\">No Ujian</th>\n                    <th style=\"width: 55%;\">Nama</th>\n                    <th style=\"width: 15%;\">Hasil Akhir</th>\n                </tr>\n            </thead>\n            <tbody>\n                ${tableRows}\n            </tbody>\n        </table>\n    </body>\n    </html>`;\n    // Mendorong hasilnya sebagai item baru\n    output.push({\n        json: {\n            filename: `Nilai_${kelas}.pdf`,\n            kelas: kelas,\n            html: html\n        }\n    });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        0
+      ],
+      "id": "091ec93c-acb4-4e8b-8fed-96cd5aca13ec",
+      "name": "Generate HTML Tabel",
+      "notes": "const : {}"
+    },
+    {
+      "parameters": {
+        "height": 144
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -224
+      ],
+      "id": "e506a863-92a2-4ef7-b218-3059bbcd12e1",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "rekap-nilai",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        150
+      ],
+      "id": "c71a3962-d6ba-4a3e-b2d9-a09b30c45e12",
+      "name": "Webhook Trigger",
+      "webhookId": "rekap-nilai-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Master Roster dari format-group-member-prn-import.xlsx\nconst MASTER_ROSTER = {\"7A\": [{\"no\": 1, \"no_ujian\": \"HT54265\", \"nama\": \"ABDIEL NAUFAL\"}, {\"no\": 2, \"no_ujian\": \"HT54266\", \"nama\": \"ACHMAD BISMA JAYA PUTRA\"}, {\"no\": 3, \"no_ujian\": \"HT54267\", \"nama\": \"ACHMAD FAHMI AMMAR\"}, {\"no\": 4, \"no_ujian\": \"HT54268\", \"nama\": \"ACHMAD ZHAFAR DEWA PRATAMA\"}, {\"no\": 5, \"no_ujian\": \"HT54269\", \"nama\": \"AHMAD IBAD AL BUKHORI\"}, {\"no\": 6, \"no_ujian\": \"HT54270\", \"nama\": \"AIR NAKHLA ABDILLAH\"}, {\"no\": 7, \"no_ujian\": \"HT54271\", \"nama\": \"AISYAH INAYATUL OCTAVIA\"}, {\"no\": 8, \"no_ujian\": \"HT54272\", \"nama\": \"ALIF AZKA AL GHIFARI\"}, {\"no\": 9, \"no_ujian\": \"HT54273\", \"nama\": \"AMANDA NABILA PUTRI\"}, {\"no\": 10, \"no_ujian\": \"HT54274\", \"nama\": \"ANINDHITA PRAMESWARI\"}, {\"no\": 11, \"no_ujian\": \"HT54275\", \"nama\": \"ARZAHWA CHIKKA ANDARLIK\"}, {\"no\": 12, \"no_ujian\": \"HT54276\", \"nama\": \"AZAHRA BALQIS HABIBAH\"}, {\"no\": 13, \"no_ujian\": \"HT54277\", \"nama\": \"CHELSEA FITRI RAMADANI\"}, {\"no\": 14, \"no_ujian\": \"HT54278\", \"nama\": \"CLARISSA PUTRI NOVELITA\"}, {\"no\": 15, \"no_ujian\": \"HT54279\", \"nama\": \"FARELLIO DILLON DWI ALDIANO\"}, {\"no\": 16, \"no_ujian\": \"HT54280\", \"nama\": \"JUVENAL ASKA VIRENDRA\"}, {\"no\": 17, \"no_ujian\": \"HT54281\", \"nama\": \"KHANAKMA ALDEBARAN SUMARTONO\"}, {\"no\": 18, \"no_ujian\": \"HT54282\", \"nama\": \"KIRANA CARISSA PUTRI\"}, {\"no\": 19, \"no_ujian\": \"HT54283\", \"nama\": \"LAURA AURERA RIZKY\"}, {\"no\": 20, \"no_ujian\": \"HT54284\", \"nama\": \"MOCH. SOFYAN ATSAURI\"}, {\"no\": 21, \"no_ujian\": \"HT54285\", \"nama\": \"MUHAMMAD ARZACHEL ALKHALIFI\"}, {\"no\": 22, \"no_ujian\": \"HT54286\", \"nama\": \"MUHAMMAD CAHYA RAMADHAN\"}, {\"no\": 23, \"no_ujian\": \"HT54287\", \"nama\": \"MUHAMMAD IBNU MUTA'ALI\"}, {\"no\": 24, \"no_ujian\": \"HT54288\", \"nama\": \"NEYSA QUINNOVA AZARIN\"}, {\"no\": 25, \"no_ujian\": \"HT54289\", \"nama\": \"RAFA PUTRA AL-HAFIIDH\"}, {\"no\": 26, \"no_ujian\": \"HT54290\", \"nama\": \"RAFFI KURNIAWAN\"}, {\"no\": 27, \"no_ujian\": \"HT54291\", \"nama\": \"RASTRA ANGGARA\"}, {\"no\": 28, \"no_ujian\": \"HT54292\", \"nama\": \"RASYA ADITYA PRATAMA\"}, {\"no\": 29, \"no_ujian\": \"HT54293\", \"nama\": \"SAFURA MARSYA ZACCHEO\"}, {\"no\": 30, \"no_ujian\": \"HT54294\", \"nama\": \"SYAFAH NAYLA AZIZAH\"}, {\"no\": 31, \"no_ujian\": \"HT54295\", \"nama\": \"VIRZA ANGGREINI\"}, {\"no\": 32, \"no_ujian\": \"HT54296\", \"nama\": \"VISTHA AYU RAHMADANTI\"}], \"7B\": [{\"no\": 33, \"no_ujian\": \"HT54297\", \"nama\": \"AALEYA NAURA CAHYA PUTRI\"}, {\"no\": 34, \"no_ujian\": \"HT54298\", \"nama\": \"AARON HAFIDZ RAMADITYA\"}, {\"no\": 35, \"no_ujian\": \"HT54299\", \"nama\": \"ACHMAD IVANO AUGUSTA HABIBIE\"}, {\"no\": 36, \"no_ujian\": \"HT54300\", \"nama\": \"AHMAD FASHA SATRIA A\"}, {\"no\": 37, \"no_ujian\": \"HT54301\", \"nama\": \"AIRA PUTRI RAMADANI\"}, {\"no\": 38, \"no_ujian\": \"HT54302\", \"nama\": \"AISYAH ZASKYA AZZAHRA\"}, {\"no\": 39, \"no_ujian\": \"HT54303\", \"nama\": \"ALMIRA ELVINA ZAHIRAH\"}, {\"no\": 40, \"no_ujian\": \"HT54304\", \"nama\": \"ANDIKA PAMUNGKAS\"}, {\"no\": 41, \"no_ujian\": \"HT54305\", \"nama\": \"ANGGITA KAYLA PUTRI\"}, {\"no\": 42, \"no_ujian\": \"HT54306\", \"nama\": \"ARALDO MARVY BASKORO\"}, {\"no\": 43, \"no_ujian\": \"HT54307\", \"nama\": \"ASKANA ATALLAH GHAISAN\"}, {\"no\": 44, \"no_ujian\": \"HT54308\", \"nama\": \"ASSYIFA NADIRA ANDRIANI\"}, {\"no\": 45, \"no_ujian\": \"HT54309\", \"nama\": \"AUFA ATHA FALAH WILIYARDO\"}, {\"no\": 46, \"no_ujian\": \"HT54310\", \"nama\": \"AZKA AKBAR RAMADHAN\"}, {\"no\": 47, \"no_ujian\": \"HT54311\", \"nama\": \"FELISYA ELEANOUR RAMAZOTY\"}, {\"no\": 48, \"no_ujian\": \"HT54312\", \"nama\": \"JEREMY SUGIARTO WIJAYA\"}, {\"no\": 49, \"no_ujian\": \"HT54313\", \"nama\": \"JIHAN MEISYHA FAUZIYAH BELLA\"}, {\"no\": 50, \"no_ujian\": \"HT54314\", \"nama\": \"KEENARA DANADYAKSA ARSYA PUTRA\"}, {\"no\": 51, \"no_ujian\": \"HT54315\", \"nama\": \"KHANZA AZZALEA IKHTIARIVALTYNE\"}, {\"no\": 52, \"no_ujian\": \"HT54316\", \"nama\": \"MUHAMMAD ALFADLI MUSTHOFA\"}, {\"no\": 53, \"no_ujian\": \"HT54317\", \"nama\": \"MUHAMMAD ALIF FIRDAUS\"}, {\"no\": 54, \"no_ujian\": \"HT54318\", \"nama\": \"MUHAMMAD AZWAR YARIL PRATAMA\"}, {\"no\": 55, \"no_ujian\": \"HT54319\", \"nama\": \"MUHAMMAD AZZAM PRAYOGA\"}, {\"no\": 56, \"no_ujian\": \"HT54320\", \"nama\": \"MUHAMMAD BAGUS TRI PERMADI\"}, {\"no\": 57, \"no_ujian\": \"HT54321\", \"nama\": \"MUHAMMAD FAIZ ZAYDAN HABIBI\"}, {\"no\": 58, \"no_ujian\": \"HT54322\", \"nama\": \"MUHAMMAD LUTHFI FAITH GHAFFAR\"}, {\"no\": 59, \"no_ujian\": \"HT54323\", \"nama\": \"MUHAMMAD REYHAN DAFFA WIRATAMA\"}, {\"no\": 60, \"no_ujian\": \"HT54324\", \"nama\": \"NAJWA ASYILAH SYAQILLA PURNAWAN\"}, {\"no\": 61, \"no_ujian\": \"HT54325\", \"nama\": \"NIMAS KHOLIFAH ZIADATUS SA'AADAH\"}, {\"no\": 62, \"no_ujian\": \"HT54326\", \"nama\": \"SABRINA ATTA SYAM HAQIQI\"}, {\"no\": 63, \"no_ujian\": \"HT54327\", \"nama\": \"SITI NUR ALISYA\"}, {\"no\": 64, \"no_ujian\": \"HT54328\", \"nama\": \"ZEEST ZEHRA SABRINA POERNOMO\"}], \"7C\": [{\"no\": 65, \"no_ujian\": \"HT54329\", \"nama\": \"ADITYA ARGANI GAFFAR\"}, {\"no\": 66, \"no_ujian\": \"HT54330\", \"nama\": \"ALIMAZKA AQIL ATAAMMAR KHOIRAN\"}, {\"no\": 67, \"no_ujian\": \"HT54331\", \"nama\": \"ANANDA SAFIRA ANGGRAINI\"}, {\"no\": 68, \"no_ujian\": \"HT54332\", \"nama\": \"AQILLA SHIDQIYYAH REFANDI\"}, {\"no\": 69, \"no_ujian\": \"HT54333\", \"nama\": \"ARSHAKA FACHRYAL NOVARIANTO\"}, {\"no\": 70, \"no_ujian\": \"HT54334\", \"nama\": \"ARYA BAGAS ARDINATA\"}, {\"no\": 71, \"no_ujian\": \"HT54335\", \"nama\": \"BALQIS ADZRA HAFIZA MACHFUT\"}, {\"no\": 72, \"no_ujian\": \"HT54336\", \"nama\": \"BRONTOZEN AL JAWI SYARIK\"}, {\"no\": 73, \"no_ujian\": \"HT54337\", \"nama\": \"D'NADIRA BERYL PUTRI PRASETYA\"}, {\"no\": 74, \"no_ujian\": \"HT54338\", \"nama\": \"FELICIA PUSPITA RAHMADANI\"}, {\"no\": 75, \"no_ujian\": \"HT54339\", \"nama\": \"FERNANDO IRFAN RAIZA\"}, {\"no\": 76, \"no_ujian\": \"HT54340\", \"nama\": \"GITANJALI SANDI ARTHA PUTRI\"}, {\"no\": 77, \"no_ujian\": \"HT54341\", \"nama\": \"GUNTUR SATRIA KURNIAWAN\"}, {\"no\": 78, \"no_ujian\": \"HT54342\", \"nama\": \"KHAIRA VANZA PUTRI RIZALI\"}, {\"no\": 79, \"no_ujian\": \"HT54343\", \"nama\": \"MAULANA ORLANDO ZAQIN\"}, {\"no\": 80, \"no_ujian\": \"HT54344\", \"nama\": \"MOIZAFRAN WINZA PUTRA\"}, {\"no\": 81, \"no_ujian\": \"HT54345\", \"nama\": \"MUCHAMMAD RIZKY ROMADHON\"}, {\"no\": 82, \"no_ujian\": \"HT54346\", \"nama\": \"MUHAMMAD ALFATH AL FARIZI\"}, {\"no\": 83, \"no_ujian\": \"HT54347\", \"nama\": \"NADYN ALYSSA\"}, {\"no\": 84, \"no_ujian\": \"HT54348\", \"nama\": \"NELVIA FITRIAH AZZAHRA\"}, {\"no\": 85, \"no_ujian\": \"HT54349\", \"nama\": \"PRAJNA SIVAN ANGGARA KRISHNA\"}, {\"no\": 86, \"no_ujian\": \"HT54350\", \"nama\": \"RAKA YAQDAN ASSAID\"}, {\"no\": 87, \"no_ujian\": \"HT54351\", \"nama\": \"RAYHAN AURENDRA NUR RASYID\"}, {\"no\": 88, \"no_ujian\": \"HT54352\", \"nama\": \"RIAN DWITAMA\"}, {\"no\": 89, \"no_ujian\": \"HT54353\", \"nama\": \"SABRIENNA SARI WIDASETIAWAN\"}, {\"no\": 90, \"no_ujian\": \"HT54354\", \"nama\": \"SAKURA ARDELIA RABBANI\"}, {\"no\": 91, \"no_ujian\": \"HT54355\", \"nama\": \"SHAREL SANDYA PUTRA YUSUF\"}, {\"no\": 92, \"no_ujian\": \"HT54356\", \"nama\": \"SYAFA'ATUL MASRUROH\"}, {\"no\": 93, \"no_ujian\": \"HT54357\", \"nama\": \"SYAMSIR DEZRANATA KAHAR\"}, {\"no\": 94, \"no_ujian\": \"HT54358\", \"nama\": \"YASMIN MEISYA PUTRI\"}, {\"no\": 95, \"no_ujian\": \"HT54359\", \"nama\": \"ZAHRA ANDARA AGUSTIN\"}, {\"no\": 96, \"no_ujian\": \"HT54360\", \"nama\": \"ZHAFRAN IBRAHIMOVIC\"}], \"7D\": [{\"no\": 97, \"no_ujian\": \"HT54361\", \"nama\": \"'ALAINA ROCHMATIKA AS SARI\"}, {\"no\": 98, \"no_ujian\": \"HT54362\", \"nama\": \"AFIQAH FITRI AZZAHRA\"}, {\"no\": 99, \"no_ujian\": \"HT54363\", \"nama\": \"AHMAD JABAL NUR ADAM\"}, {\"no\": 100, \"no_ujian\": \"HT54364\", \"nama\": \"ALANA SADIA AZZAHRA\"}, {\"no\": 101, \"no_ujian\": \"HT54365\", \"nama\": \"ASYRAF FAITH LATIF ATHAILLAH\"}, {\"no\": 102, \"no_ujian\": \"HT54366\", \"nama\": \"ATHALLAH OZIEL ZAHRAN WIYAN\"}, {\"no\": 103, \"no_ujian\": \"HT54367\", \"nama\": \"AZKA TIRTA PRATAMA\"}, {\"no\": 104, \"no_ujian\": \"HT54368\", \"nama\": \"AQILLA ZAFARANI NARAYA\"}, {\"no\": 105, \"no_ujian\": \"HT54369\", \"nama\": \"BILQIS FAIHA SYAKIRAH\"}, {\"no\": 106, \"no_ujian\": \"HT54370\", \"nama\": \"CHABIBA KHOIRUN NISA\"}, {\"no\": 107, \"no_ujian\": \"HT54371\", \"nama\": \"DEVAN YUDISTIRA ARYAMANTA\"}, {\"no\": 108, \"no_ujian\": \"HT54372\", \"nama\": \"DEVI CITRA RESMI SANTYAPITALOKA\"}, {\"no\": 109, \"no_ujian\": \"HT54373\", \"nama\": \"GRIEZELDA KAYLIEN KWOK\"}, {\"no\": 110, \"no_ujian\": \"HT54374\", \"nama\": \"GUSTI ELFIRA LUQLUK IL MAQNUM\"}, {\"no\": 111, \"no_ujian\": \"HT54375\", \"nama\": \"GWYNETH ANASHTHASYA IBADI\"}, {\"no\": 112, \"no_ujian\": \"HT54376\", \"nama\": \"KIRANI PUTRI NOVANKA\"}, {\"no\": 113, \"no_ujian\": \"HT54377\", \"nama\": \"MOCHAMAD NAJIB SYAFI'I\"}, {\"no\": 114, \"no_ujian\": \"HT54378\", \"nama\": \"MUHAMMAD ALFIAN FEBRIRANTO\"}, {\"no\": 115, \"no_ujian\": \"HT54379\", \"nama\": \"MUHAMMAD ERICK ZULFIKAR ANWAR\"}, {\"no\": 116, \"no_ujian\": \"HT54380\", \"nama\": \"MUHAMMAD GHALY SA'ADI RIF'AT\"}, {\"no\": 117, \"no_ujian\": \"HT54381\", \"nama\": \"MUHAMMAD HAZIC RAYYAN\"}, {\"no\": 118, \"no_ujian\": \"HT54382\", \"nama\": \"MUHAMMAD SYAFIQ IBRAHIM\"}, {\"no\": 119, \"no_ujian\": \"HT54383\", \"nama\": \"NARAYA ZAHSYAFENA ANANDITA\"}, {\"no\": 120, \"no_ujian\": \"HT54384\", \"nama\": \"NIZAR HARIS RAHMAN\"}, {\"no\": 121, \"no_ujian\": \"HT54385\", \"nama\": \"RAFFANAYA ALFAREEZY ZIDNEE\"}, {\"no\": 122, \"no_ujian\": \"HT54386\", \"nama\": \"RAFIF ZAYDAN ALIFIANO\"}, {\"no\": 123, \"no_ujian\": \"HT54387\", \"nama\": \"SAKHA BAYU SYANDANA\"}, {\"no\": 124, \"no_ujian\": \"HT54388\", \"nama\": \"SALSABILLA PUTRI AZZAHRA\"}, {\"no\": 125, \"no_ujian\": \"HT54389\", \"nama\": \"SEKAR KINARA KURNIADEWI\"}, {\"no\": 126, \"no_ujian\": \"HT54390\", \"nama\": \"TRISTAN AVA MAULANA\"}, {\"no\": 127, \"no_ujian\": \"HT54391\", \"nama\": \"ZAHIRA ADELIA SALMA\"}, {\"no\": 128, \"no_ujian\": \"HT54392\", \"nama\": \"ZAIN GIBRAN HELINTAR ATMADJA\"}], \"7E\": [{\"no\": 129, \"no_ujian\": \"HT54393\", \"nama\": \"ABIDZAR ARKAAN ABDILLAH NAILLUNNABHAN\"}, {\"no\": 130, \"no_ujian\": \"HT54394\", \"nama\": \"ADELLE NATHANIA PRASTIYO\"}, {\"no\": 131, \"no_ujian\": \"HT54395\", \"nama\": \"ALVIN GAVRIEL RORONG\"}, {\"no\": 132, \"no_ujian\": \"HT54396\", \"nama\": \"ANAK AGUNG ARSHA RAJENDRA KAHFI\"}, {\"no\": 133, \"no_ujian\": \"HT54397\", \"nama\": \"ARSY LINTANG JENAR\"}, {\"no\": 134, \"no_ujian\": \"HT54398\", \"nama\": \"AZKA ADHYASTA RAHMADI\"}, {\"no\": 135, \"no_ujian\": \"HT54399\", \"nama\": \"BIMA RAMA PRATAMA\"}, {\"no\": 136, \"no_ujian\": \"HT54400\", \"nama\": \"CHANTIKA ALFOURA RAMADHANI\"}, {\"no\": 137, \"no_ujian\": \"HT54401\", \"nama\": \"ELMIRA AZZAHRA PUTRI\"}, {\"no\": 138, \"no_ujian\": \"HT54402\", \"nama\": \"HERLENA CLAUDYA RAHMADHANY\"}, {\"no\": 139, \"no_ujian\": \"HT54403\", \"nama\": \"IZZA RAHMADHANI\"}, {\"no\": 140, \"no_ujian\": \"HT54404\", \"nama\": \"JOEL MANURUNG\"}, {\"no\": 141, \"no_ujian\": \"HT54405\", \"nama\": \"KENZO ALVARO AQUINO WIBISONO\"}, {\"no\": 142, \"no_ujian\": \"HT54406\", \"nama\": \"KEZIA ZIZI ARETHA\"}, {\"no\": 143, \"no_ujian\": \"HT54407\", \"nama\": \"KHAYYISSA GHASANI\"}, {\"no\": 144, \"no_ujian\": \"HT54408\", \"nama\": \"KIRANA LARASATI PUSPITA DEWI\"}, {\"no\": 145, \"no_ujian\": \"HT54409\", \"nama\": \"MAKAILA SHAUMI RAMADHINA\"}, {\"no\": 146, \"no_ujian\": \"HT54410\", \"nama\": \"MUHAMMAD FATHAN\"}, {\"no\": 147, \"no_ujian\": \"HT54411\", \"nama\": \"MUHAMMAD HAMZAH IZZUL HAQ\"}, {\"no\": 148, \"no_ujian\": \"HT54412\", \"nama\": \"NILUH JANI SURYA\"}, {\"no\": 149, \"no_ujian\": \"HT54413\", \"nama\": \"PRIYANKA KALILA SATRYAWAN\"}, {\"no\": 150, \"no_ujian\": \"HT54414\", \"nama\": \"RAFFA AZZA SAPUTRA\"}, {\"no\": 151, \"no_ujian\": \"HT54415\", \"nama\": \"RAJJA ATHA NURVYANTO\"}, {\"no\": 152, \"no_ujian\": \"HT54416\", \"nama\": \"RIZKY LATIEF SAPUTRA\"}, {\"no\": 153, \"no_ujian\": \"HT54417\", \"nama\": \"SATRIA EKA MAGENDHA PUTRA\"}, {\"no\": 154, \"no_ujian\": \"HT54418\", \"nama\": \"SHEVA AQILLAH RAMADHANI\"}, {\"no\": 155, \"no_ujian\": \"HT54419\", \"nama\": \"SILVI AMALIA\"}, {\"no\": 156, \"no_ujian\": \"HT54420\", \"nama\": \"TAHNIA SYAKIRA\"}, {\"no\": 157, \"no_ujian\": \"HT54421\", \"nama\": \"TARUNA SATRIA BAGASKARA\"}, {\"no\": 158, \"no_ujian\": \"HT54422\", \"nama\": \"VALENTINO PRIESTYO WAHYUDI\"}, {\"no\": 159, \"no_ujian\": \"HT54423\", \"nama\": \"VINCENT YUAN NAEL\"}, {\"no\": 160, \"no_ujian\": \"HT54424\", \"nama\": \"VIRTA AGUSTIN\"}], \"8A\": [{\"no\": 161, \"no_ujian\": \"HT54103\", \"nama\": \"ABIYAKSA BIMA CANDRA PUTRA\"}, {\"no\": 162, \"no_ujian\": \"HT54104\", \"nama\": \"AFIQA NAJWA ARIF\"}, {\"no\": 163, \"no_ujian\": \"HT54105\", \"nama\": \"AISYAH AFIQAH RAMADHANI CHANIAGO\"}, {\"no\": 164, \"no_ujian\": \"HT54106\", \"nama\": \"AL AZAM KABID FIRMANSHA\"}, {\"no\": 165, \"no_ujian\": \"HT54107\", \"nama\": \"ALEXANDER SAVERO\"}, {\"no\": 166, \"no_ujian\": \"HT54109\", \"nama\": \"ALIFIANDRA TSAQIF ATHAYA\"}, {\"no\": 167, \"no_ujian\": \"HT54110\", \"nama\": \"ANANDITA AQILAH SHIDQIYAH\"}, {\"no\": 168, \"no_ujian\": \"HT54111\", \"nama\": \"ANTARAJA BAYU PUTRA\"}, {\"no\": 169, \"no_ujian\": \"HT54112\", \"nama\": \"ASSYIFA NIRMALA HARTONO\"}, {\"no\": 170, \"no_ujian\": \"HT54113\", \"nama\": \"AUFAR ALVARO SUNARTO\"}, {\"no\": 171, \"no_ujian\": \"HT54114\", \"nama\": \"AUGISTAMAYORA LAFANJANI ERFALKY\"}, {\"no\": 172, \"no_ujian\": \"HT54115\", \"nama\": \"AZAKA PURNA RAMADHAN\"}, {\"no\": 173, \"no_ujian\": \"HT54116\", \"nama\": \"CHERYL FAYYOLA CALISTA RAJWA\"}, {\"no\": 174, \"no_ujian\": \"HT54117\", \"nama\": \"ERLANGGA ALBIANO PAMBA\"}, {\"no\": 175, \"no_ujian\": \"HT54118\", \"nama\": \"GANESYA FERANI PUTRI KURNIAWAN\"}, {\"no\": 176, \"no_ujian\": \"HT54119\", \"nama\": \"GEBRILLIA NAURA GUIN\"}, {\"no\": 177, \"no_ujian\": \"HT54120\", \"nama\": \"GRISELDA HANY TRIASANJAYA\"}, {\"no\": 178, \"no_ujian\": \"HT54121\", \"nama\": \"KEYZA PUTRI AULIA RACHMA\"}, {\"no\": 179, \"no_ujian\": \"HT54122\", \"nama\": \"MAULYDIA RANIA ASSYIFA\"}, {\"no\": 180, \"no_ujian\": \"HT54123\", \"nama\": \"MELVINNO EDSEL GAOZAN SIREGAR\"}, {\"no\": 181, \"no_ujian\": \"HT54124\", \"nama\": \"MOCHAMAD ALAM GANI SYAPUTRA\"}, {\"no\": 182, \"no_ujian\": \"HT54125\", \"nama\": \"MUHAMMAD AULIA RAAFI\"}, {\"no\": 183, \"no_ujian\": \"HT54127\", \"nama\": \"NASHWA AULYA THOLIB\"}, {\"no\": 184, \"no_ujian\": \"HT54128\", \"nama\": \"RIZQULLAH AZHAR SYAHPUTRA\"}, {\"no\": 185, \"no_ujian\": \"HT54130\", \"nama\": \"SIGIT SETYO LESMONO\"}, {\"no\": 186, \"no_ujian\": \"HT54131\", \"nama\": \"SILVY PERMATA SARI\"}, {\"no\": 187, \"no_ujian\": \"HT54132\", \"nama\": \"TARAKA MIRZA ARDHANI PUTRA RACHMAD\"}, {\"no\": 188, \"no_ujian\": \"HT54133\", \"nama\": \"VINDRA KAYLA PUTRICATYA\"}, {\"no\": 189, \"no_ujian\": \"HT54134\", \"nama\": \"XAVIER CAILAN IBRAHIM\"}, {\"no\": 190, \"no_ujian\": \"HT54264\", \"nama\": \"THANIA AZZAHRA SEPTIANI\"}, {\"no\": 191, \"no_ujian\": \"HT54425\", \"nama\": \"DIWANGGA JAYAWARDANA\"}, {\"no\": 192, \"no_ujian\": \"HT54427\", \"nama\": \"CAYSAR HARUNA MOEKTI\"}], \"8B\": [{\"no\": 193, \"no_ujian\": \"HT54135\", \"nama\": \"ABRAHAM ALEXI PRATAMA\"}, {\"no\": 194, \"no_ujian\": \"HT54136\", \"nama\": \"ACHMAD DEVAN ALFIANO\"}, {\"no\": 195, \"no_ujian\": \"HT54137\", \"nama\": \"AISYAH FAIRUZ ZIA\"}, {\"no\": 196, \"no_ujian\": \"HT54138\", \"nama\": \"ALESHA MUMTAZAH PRATIWI\"}, {\"no\": 197, \"no_ujian\": \"HT54139\", \"nama\": \"AMELIA PUTRI THENIA\"}, {\"no\": 198, \"no_ujian\": \"HT54140\", \"nama\": \"AQILA ZAZKIA PUTRI WAHYUDI\"}, {\"no\": 199, \"no_ujian\": \"HT54141\", \"nama\": \"AZZAHRA AVIKA RAMADHANI\"}, {\"no\": 200, \"no_ujian\": \"HT54142\", \"nama\": \"CALLISTHA PUTRI AZZALYA\"}, {\"no\": 201, \"no_ujian\": \"HT54143\", \"nama\": \"DENANTARA RAGA HERMAWAN\"}, {\"no\": 202, \"no_ujian\": \"HT54144\", \"nama\": \"ELGA PRABU THRIEASAMBUDI\"}, {\"no\": 203, \"no_ujian\": \"HT54145\", \"nama\": \"FABIAN ELFANO FELANI\"}, {\"no\": 204, \"no_ujian\": \"HT54146\", \"nama\": \"FADHIL RAHMAN HIDAYAT\"}, {\"no\": 205, \"no_ujian\": \"HT54147\", \"nama\": \"FANO BAKHTIAR FIRMANSYAH\"}, {\"no\": 206, \"no_ujian\": \"HT54148\", \"nama\": \"FARID MAULANA PUTRA\"}, {\"no\": 207, \"no_ujian\": \"HT54149\", \"nama\": \"FINO OZIL ORLANDO\"}, {\"no\": 208, \"no_ujian\": \"HT54150\", \"nama\": \"FIRZA NAYRA ARFANDI\"}, {\"no\": 209, \"no_ujian\": \"HT54151\", \"nama\": \"GEBYLIA ANJANI\"}, {\"no\": 210, \"no_ujian\": \"HT54152\", \"nama\": \"HARI SETYO WIBOWO\"}, {\"no\": 211, \"no_ujian\": \"HT54153\", \"nama\": \"KAYLA BELINDA NURAINI\"}, {\"no\": 212, \"no_ujian\": \"HT54154\", \"nama\": \"LUCKY FERDINAN PUTRA ANANTA\"}, {\"no\": 213, \"no_ujian\": \"HT54155\", \"nama\": \"M. NUGIE ALDIANO APRILIO\"}, {\"no\": 214, \"no_ujian\": \"HT54156\", \"nama\": \"MAIRA NAZNIN\"}, {\"no\": 215, \"no_ujian\": \"HT54157\", \"nama\": \"MAULANA EZA ARIFIN\"}, {\"no\": 216, \"no_ujian\": \"HT54158\", \"nama\": \"MICHAEL KURNIAWAN SANTOSO\"}, {\"no\": 217, \"no_ujian\": \"HT54159\", \"nama\": \"MUHAMMAD NURISMA ALI AKBAR\"}, {\"no\": 218, \"no_ujian\": \"HT54160\", \"nama\": \"NAULITA MAYZA\"}, {\"no\": 219, \"no_ujian\": \"HT54161\", \"nama\": \"NAYARA AZALEA\"}, {\"no\": 220, \"no_ujian\": \"HT54162\", \"nama\": \"RAMIZAH ALYA SYARIF\"}, {\"no\": 221, \"no_ujian\": \"HT54163\", \"nama\": \"SHEVANO FABIAN GEMINTANG\"}, {\"no\": 222, \"no_ujian\": \"HT54164\", \"nama\": \"SOFIA MARSHA AZZAHRA\"}, {\"no\": 223, \"no_ujian\": \"HT54165\", \"nama\": \"VICKY INTISAR PRATAMA\"}, {\"no\": 224, \"no_ujian\": \"HT54166\", \"nama\": \"ZAKY FATTAH ABBASY\"}], \"8C\": [{\"no\": 225, \"no_ujian\": \"HT54167\", \"nama\": \"ABDAN NIZAM PALARAS\"}, {\"no\": 226, \"no_ujian\": \"HT54168\", \"nama\": \"AL GHOZALI OKSTYA MUHIBBIN\"}, {\"no\": 227, \"no_ujian\": \"HT54169\", \"nama\": \"ALYCIA CAHYANING PUTRI\"}, {\"no\": 228, \"no_ujian\": \"HT54170\", \"nama\": \"ANISA SALSABILA ANANDA PRASETYO\"}, {\"no\": 229, \"no_ujian\": \"HT54171\", \"nama\": \"ANISATUL MUSRIFA\"}, {\"no\": 230, \"no_ujian\": \"HT54172\", \"nama\": \"AURELLITA SYAHIRA ANURDA\"}, {\"no\": 231, \"no_ujian\": \"HT54173\", \"nama\": \"CINTIA ALYA RAMADHANI\"}, {\"no\": 232, \"no_ujian\": \"HT54174\", \"nama\": \"DANISH WIRA HARJUNA\"}, {\"no\": 233, \"no_ujian\": \"HT54175\", \"nama\": \"DWI FATHIN AZ - ZAHRA\"}, {\"no\": 234, \"no_ujian\": \"HT54176\", \"nama\": \"FASIKHA ALZA ATTASQIYA\"}, {\"no\": 235, \"no_ujian\": \"HT54177\", \"nama\": \"GENDHIS RASENDRIA ATHA SUSANTO\"}, {\"no\": 236, \"no_ujian\": \"HT54178\", \"nama\": \"HAURA SALWA AYYASYFA\"}, {\"no\": 237, \"no_ujian\": \"HT54179\", \"nama\": \"IBRAHIM ADHAM IRAWAN\"}, {\"no\": 238, \"no_ujian\": \"HT54181\", \"nama\": \"MAHESWARI KIRANA ARDHANI\"}, {\"no\": 239, \"no_ujian\": \"HT54182\", \"nama\": \"MOHAMAD ALVIAN ADI FADILAH\"}, {\"no\": 240, \"no_ujian\": \"HT54183\", \"nama\": \"MUCHAMAD AMAR ZAIN\"}, {\"no\": 241, \"no_ujian\": \"HT54184\", \"nama\": \"MUHAMMAD  FADIL FEBRIANTO MARUDDIN\"}, {\"no\": 242, \"no_ujian\": \"HT54185\", \"nama\": \"MUHAMMAD AL AQIL RAMADENTA MUSABIH\"}, {\"no\": 243, \"no_ujian\": \"HT54186\", \"nama\": \"MUHAMMAD AZZAM ZAMMI\"}, {\"no\": 244, \"no_ujian\": \"HT54187\", \"nama\": \"MUHAMMAD SATRIA DWI KURNIAWAN\"}, {\"no\": 245, \"no_ujian\": \"HT54188\", \"nama\": \"MUHAMMAD ZADE\"}, {\"no\": 246, \"no_ujian\": \"HT54189\", \"nama\": \"NABILA KHANZA NUR AFIFAH\"}, {\"no\": 247, \"no_ujian\": \"HT54190\", \"nama\": \"OKTAVIAN YUSUF ABRIANSYAH\"}, {\"no\": 248, \"no_ujian\": \"HT54191\", \"nama\": \"PRADIPTA ADITYA\"}, {\"no\": 249, \"no_ujian\": \"HT54192\", \"nama\": \"RAFARDHAN ELVIN MAHADHIKA\"}, {\"no\": 250, \"no_ujian\": \"HT54193\", \"nama\": \"REZKY AKBAR OKTAWIJAYA\"}, {\"no\": 251, \"no_ujian\": \"HT54194\", \"nama\": \"REZKY NAVYANDRA ACHMAD\"}, {\"no\": 252, \"no_ujian\": \"HT54195\", \"nama\": \"REZON ADICANDRA FIRJATULAH\"}, {\"no\": 253, \"no_ujian\": \"HT54196\", \"nama\": \"SASABELA NINDI ADELIA PUTRI\"}, {\"no\": 254, \"no_ujian\": \"HT54197\", \"nama\": \"WAODE MAUREN RIZKI APRILIA PAKRI\"}, {\"no\": 255, \"no_ujian\": \"HT54198\", \"nama\": \"YOGISWARA ADITYA SETIAWAN\"}], \"8D\": [{\"no\": 256, \"no_ujian\": \"HT54199\", \"nama\": \"ABINAYA KHALFANI PUTRA NUGRAHA\"}, {\"no\": 257, \"no_ujian\": \"HT54200\", \"nama\": \"AFIF KHALAF FAITH AL AZIZ\"}, {\"no\": 258, \"no_ujian\": \"HT54201\", \"nama\": \"AKHDAN MAKHRUS RAMADHANI\"}, {\"no\": 259, \"no_ujian\": \"HT54202\", \"nama\": \"AMIRAH HANIN GHAZIYAH MARPAUNG\"}, {\"no\": 260, \"no_ujian\": \"HT54203\", \"nama\": \"ARYA ANDARU\"}, {\"no\": 261, \"no_ujian\": \"HT54204\", \"nama\": \"AS'SYIFA QURRATA A'YYUN\"}, {\"no\": 262, \"no_ujian\": \"HT54205\", \"nama\": \"AYU PUTRI RENGGANIS\"}, {\"no\": 263, \"no_ujian\": \"HT54206\", \"nama\": \"CELLO NAGATA SIVA\"}, {\"no\": 264, \"no_ujian\": \"HT54207\", \"nama\": \"DZAKIRA TALITA AFTANIA IRAWAN\"}, {\"no\": 265, \"no_ujian\": \"HT54208\", \"nama\": \"ENGGAR ALDIANO\"}, {\"no\": 266, \"no_ujian\": \"HT54209\", \"nama\": \"FEBBY KURNIA\"}, {\"no\": 267, \"no_ujian\": \"HT54210\", \"nama\": \"KEEVIN LEEMARCH ADENTORIO RACHMANSYAH\"}, {\"no\": 268, \"no_ujian\": \"HT54211\", \"nama\": \"KIRANA ARDELIA SYAWFITRI\"}, {\"no\": 269, \"no_ujian\": \"HT54212\", \"nama\": \"MAHAFIQHA PUTRI NUGROHO\"}, {\"no\": 270, \"no_ujian\": \"HT54213\", \"nama\": \"MOCH. KENZIE RABBANI DIWANGKARA\"}, {\"no\": 271, \"no_ujian\": \"HT54214\", \"nama\": \"MONIK CANTIQA FARADILLAH\"}, {\"no\": 272, \"no_ujian\": \"HT54215\", \"nama\": \"MUHAMMAD AKBAR AL-FARABY\"}, {\"no\": 273, \"no_ujian\": \"HT54216\", \"nama\": \"MUHAMMAD HAFIZ ARDHA PRIYADI\"}, {\"no\": 274, \"no_ujian\": \"HT54217\", \"nama\": \"MUHAMMAD LIONEL PUTRA\"}, {\"no\": 275, \"no_ujian\": \"HT54218\", \"nama\": \"MUHAMMAD NIZAM EL RUMMI\"}, {\"no\": 276, \"no_ujian\": \"HT54219\", \"nama\": \"MUHAMMAD ZIDAN ALGHIFARI\"}, {\"no\": 277, \"no_ujian\": \"HT54220\", \"nama\": \"MUKHAMMAD NIZAM AL-FARIZI\"}, {\"no\": 278, \"no_ujian\": \"HT54221\", \"nama\": \"NAURA ATALIA AZMI\"}, {\"no\": 279, \"no_ujian\": \"HT54222\", \"nama\": \"NAURA NADHIFA TENTANIA\"}, {\"no\": 280, \"no_ujian\": \"HT54223\", \"nama\": \"RAGIEL PUTRA BAGASKARA\"}, {\"no\": 281, \"no_ujian\": \"HT54224\", \"nama\": \"RAISHA ADHINA PUTRI SAKINAH\"}, {\"no\": 282, \"no_ujian\": \"HT54225\", \"nama\": \"REZQI GHANIYYA TRIANI\"}, {\"no\": 283, \"no_ujian\": \"HT54226\", \"nama\": \"SAFIRA DARIS SALAMAH\"}, {\"no\": 284, \"no_ujian\": \"HT54227\", \"nama\": \"SATRIA YUDHISTIRA\"}, {\"no\": 285, \"no_ujian\": \"HT54228\", \"nama\": \"WISANG AJI BRAMANTYO\"}, {\"no\": 286, \"no_ujian\": \"HT54229\", \"nama\": \"YUDHISTIRA APRILLEO RACHMADI\"}, {\"no\": 287, \"no_ujian\": \"HT54230\", \"nama\": \"ZAHRANI SALSABILLA RAMADHANI\"}], \"8E\": [{\"no\": 288, \"no_ujian\": \"HT54231\", \"nama\": \"ADHIKA VIDYA KAYANA\"}, {\"no\": 289, \"no_ujian\": \"HT54232\", \"nama\": \"ADITIA ANGGA SUGIARTO\"}, {\"no\": 290, \"no_ujian\": \"HT54233\", \"nama\": \"AFINDA SAFA NILAM SARI\"}, {\"no\": 291, \"no_ujian\": \"HT54234\", \"nama\": \"AKHMAD SAHRUL A'SHOBIR ROMADHAN\"}, {\"no\": 292, \"no_ujian\": \"HT54235\", \"nama\": \"ALIF IBRAHIM MACHFUT\"}, {\"no\": 293, \"no_ujian\": \"HT54236\", \"nama\": \"ALIYULLAH RUSYDA AL KASYSYAF\"}, {\"no\": 294, \"no_ujian\": \"HT54237\", \"nama\": \"ANDHIKA DWI RAHMAN DANI\"}, {\"no\": 295, \"no_ujian\": \"HT54238\", \"nama\": \"BRILLIAN AMYRA RACHMA\"}, {\"no\": 296, \"no_ujian\": \"HT54239\", \"nama\": \"CHALYSTA ARIMBI DEWI WIRIANDONO\"}, {\"no\": 297, \"no_ujian\": \"HT54240\", \"nama\": \"DIANDRA NAVAS JOVITA RAMADHANI\"}, {\"no\": 298, \"no_ujian\": \"HT54241\", \"nama\": \"DIKTA AHMAD VIZAKI\"}, {\"no\": 299, \"no_ujian\": \"HT54242\", \"nama\": \"DZAKIROTUL FAIZA QONITA AYU\"}, {\"no\": 300, \"no_ujian\": \"HT54243\", \"nama\": \"GHINA AUFA SAFIRA\"}, {\"no\": 301, \"no_ujian\": \"HT54244\", \"nama\": \"I KADEK TYNO UKTO WARDANA\"}, {\"no\": 302, \"no_ujian\": \"HT54245\", \"nama\": \"JAYENDRA DEWI ANGELIA\"}, {\"no\": 303, \"no_ujian\": \"HT54246\", \"nama\": \"LAREINA DHIA TIHANY\"}, {\"no\": 304, \"no_ujian\": \"HT54247\", \"nama\": \"LETISHA NAVEEN ANGGORO\"}, {\"no\": 305, \"no_ujian\": \"HT54248\", \"nama\": \"MIKHAEL BAYUSETO HADI\"}, {\"no\": 306, \"no_ujian\": \"HT54249\", \"nama\": \"MOCH. BHIMAS FAIZ AL-BUCHORI\"}, {\"no\": 307, \"no_ujian\": \"HT54250\", \"nama\": \"MUHAMMAD ANTONIO IRSYAD MA'ARIF\"}, {\"no\": 308, \"no_ujian\": \"HT54252\", \"nama\": \"MUHAMMAD ZIDANE ATAZHAR\"}, {\"no\": 309, \"no_ujian\": \"HT54253\", \"nama\": \"NARENDRA AILISYACH AL SHAFY MUHAMMAD\"}, {\"no\": 310, \"no_ujian\": \"HT54254\", \"nama\": \"NI KOMANG SEKAR AYU GAYATRI\"}, {\"no\": 311, \"no_ujian\": \"HT54255\", \"nama\": \"RADITYA ADRIAN MAHARDIKA\"}, {\"no\": 312, \"no_ujian\": \"HT54256\", \"nama\": \"SHAFA FAUZIAH BUDIANTO\"}, {\"no\": 313, \"no_ujian\": \"HT54257\", \"nama\": \"SHAFIRA RAMADHANIA SISWONO\"}, {\"no\": 314, \"no_ujian\": \"HT54258\", \"nama\": \"VANIA ELYSIA CAROLIENA\"}, {\"no\": 315, \"no_ujian\": \"HT54259\", \"nama\": \"VINCENT RAYA EURELIO WIRAWAN\"}, {\"no\": 316, \"no_ujian\": \"HT54260\", \"nama\": \"YOHAN CHRISTIAN OTNIEL\"}, {\"no\": 317, \"no_ujian\": \"HT54261\", \"nama\": \"ZAHWA AISYAH AFIQAH\"}, {\"no\": 318, \"no_ujian\": \"HT54262\", \"nama\": \"ZILDJIAN YUSUF AL-MUZAKI\"}], \"9A\": [{\"no\": 319, \"no_ujian\": \"HT53940\", \"nama\": \"A NAQULA VINZA BAGOES DEWANATA\"}, {\"no\": 320, \"no_ujian\": \"HT53941\", \"nama\": \"ADHYASTHA RIZQIE PRASETYA\"}, {\"no\": 321, \"no_ujian\": \"HT53942\", \"nama\": \"AISYAH KANAYA FARHANI\"}, {\"no\": 322, \"no_ujian\": \"HT53943\", \"nama\": \"ALTHAF ARDIANSYAH\"}, {\"no\": 323, \"no_ujian\": \"HT53945\", \"nama\": \"ANDREA VICKY GIOVANNY\"}, {\"no\": 324, \"no_ujian\": \"HT53946\", \"nama\": \"ANGELINA JULY HENDARTO\"}, {\"no\": 325, \"no_ujian\": \"HT53947\", \"nama\": \"BILQIS KEANA RENGGANIS\"}, {\"no\": 326, \"no_ujian\": \"HT53949\", \"nama\": \"CLARISSA PUTRI GRACIA\"}, {\"no\": 327, \"no_ujian\": \"HT53950\", \"nama\": \"DANIEL PUTRA MAIRISSA\"}, {\"no\": 328, \"no_ujian\": \"HT53951\", \"nama\": \"DIVANIA RAHMA MAULIDYA\"}, {\"no\": 329, \"no_ujian\": \"HT53953\", \"nama\": \"GUINEVERE ZEFANYA ELIAZAR\"}, {\"no\": 330, \"no_ujian\": \"HT53954\", \"nama\": \"HOSEA BAGAS ARTAKU NAPITUPULU\"}, {\"no\": 331, \"no_ujian\": \"HT53955\", \"nama\": \"JESSIE SEVA PRATIWI\"}, {\"no\": 332, \"no_ujian\": \"HT53956\", \"nama\": \"JORELLYN OLIVEA HARTONO\"}, {\"no\": 333, \"no_ujian\": \"HT53958\", \"nama\": \"MICHAELA CANTIKA ARDIANTA\"}, {\"no\": 334, \"no_ujian\": \"HT53959\", \"nama\": \"MOH. YUSRIL AFANDI\"}, {\"no\": 335, \"no_ujian\": \"HT53960\", \"nama\": \"MOHAMAD HILBRAM ALBARIQ\"}, {\"no\": 336, \"no_ujian\": \"HT53961\", \"nama\": \"MOHAMMAD HAFLAH AL AZHAR\"}, {\"no\": 337, \"no_ujian\": \"HT53962\", \"nama\": \"MONICA MODESTY PUTRI\"}, {\"no\": 338, \"no_ujian\": \"HT53963\", \"nama\": \"MUHAMMAD ADHYASTA EVAN TSAQIF\"}, {\"no\": 339, \"no_ujian\": \"HT53964\", \"nama\": \"MUHAMMAD IQBAL MUZAKKI\"}, {\"no\": 340, \"no_ujian\": \"HT53965\", \"nama\": \"NUGIE KRISTIAN ANDRIANTO\"}, {\"no\": 341, \"no_ujian\": \"HT53966\", \"nama\": \"PUTRI ZABRILLIAN CHOLIND\"}, {\"no\": 342, \"no_ujian\": \"HT53967\", \"nama\": \"RANGGA ADITYA\"}, {\"no\": 343, \"no_ujian\": \"HT53968\", \"nama\": \"VERENA DWI FEBRIYANTI BAMUNG\"}, {\"no\": 344, \"no_ujian\": \"HT53969\", \"nama\": \"WIMA ARSYA RAHMAN\"}, {\"no\": 345, \"no_ujian\": \"HT53970\", \"nama\": \"YEMIMA EZRI PUTRI AYU\"}, {\"no\": 346, \"no_ujian\": \"HT54101\", \"nama\": \"FIONA ALTHAF AZZAHRA\"}, {\"no\": 347, \"no_ujian\": \"HT54263\", \"nama\": \"VIONA NADA SALSABELA\"}, {\"no\": 348, \"no_ujian\": \"HT54426\", \"nama\": \"NAGA EL FATIR WIJAYA\"}], \"9B\": [{\"no\": 349, \"no_ujian\": \"HT53971\", \"nama\": \"ABID DANA RADITYA\"}, {\"no\": 350, \"no_ujian\": \"HT53972\", \"nama\": \"AFICHA DAMAR SHAFIRA\"}, {\"no\": 351, \"no_ujian\": \"HT53973\", \"nama\": \"AGUNG ARYA SHAFIYURRAHMAN\"}, {\"no\": 352, \"no_ujian\": \"HT53974\", \"nama\": \"AHMAD HAFIZH SURYA ALAM\"}, {\"no\": 353, \"no_ujian\": \"HT53975\", \"nama\": \"AHMAD WAHYU DANADYAKSA\"}, {\"no\": 354, \"no_ujian\": \"HT53976\", \"nama\": \"AISSY HAFIY IVANDER SOSMUAWAN\"}, {\"no\": 355, \"no_ujian\": \"HT53977\", \"nama\": \"AKHMAD AINUR NIZAM\"}, {\"no\": 356, \"no_ujian\": \"HT53978\", \"nama\": \"ANANG ARDIANSYAH\"}, {\"no\": 357, \"no_ujian\": \"HT53979\", \"nama\": \"ARIQA ASYRANI RAHIMA\"}, {\"no\": 358, \"no_ujian\": \"HT53980\", \"nama\": \"BISMA LUCKY PRATAMA\"}, {\"no\": 359, \"no_ujian\": \"HT53981\", \"nama\": \"BRYANT PRANAJA PURNOMO\"}, {\"no\": 360, \"no_ujian\": \"HT53982\", \"nama\": \"CHARRIZA YULIANI PUTRI SUBIJANTO\"}, {\"no\": 361, \"no_ujian\": \"HT53983\", \"nama\": \"DEWI RAHMAWATI\"}, {\"no\": 362, \"no_ujian\": \"HT53984\", \"nama\": \"DZALFA AQILLAH SANJAYA\"}, {\"no\": 363, \"no_ujian\": \"HT53985\", \"nama\": \"EFRANDA APRILIA SANANGKA\"}, {\"no\": 364, \"no_ujian\": \"HT53987\", \"nama\": \"HUSSEIN KHALID BAHREISY\"}, {\"no\": 365, \"no_ujian\": \"HT53988\", \"nama\": \"MEYSHA NAURA RAYANI FAUZI\"}, {\"no\": 366, \"no_ujian\": \"HT53989\", \"nama\": \"MOCH. RAFFA HANDIKA PRATAMA\"}, {\"no\": 367, \"no_ujian\": \"HT53990\", \"nama\": \"MOCHAMMAD RICO FERDINAND ZA FAUZI\"}, {\"no\": 368, \"no_ujian\": \"HT53991\", \"nama\": \"MOCHAMMAD RIZKY DARMAWAN\"}, {\"no\": 369, \"no_ujian\": \"HT53992\", \"nama\": \"MUHAMMAD ALIF MUBARROK\"}, {\"no\": 370, \"no_ujian\": \"HT53993\", \"nama\": \"MUHAMMAD AZIZAN RABBANI EDWARD\"}, {\"no\": 371, \"no_ujian\": \"HT53994\", \"nama\": \"MUHAMMAD RASYA KALANDRA\"}, {\"no\": 372, \"no_ujian\": \"HT53995\", \"nama\": \"NARMADHA FERANI PUTRI KURNIAWAN\"}, {\"no\": 373, \"no_ujian\": \"HT53996\", \"nama\": \"RAEYHAN ATMAJA MULYA\"}, {\"no\": 374, \"no_ujian\": \"HT53997\", \"nama\": \"RAFAN ARMANDA\"}, {\"no\": 375, \"no_ujian\": \"HT53998\", \"nama\": \"RAUZAN FIKRI PRADHITYA\"}, {\"no\": 376, \"no_ujian\": \"HT53999\", \"nama\": \"RIDWAN DAIVAN ISTAZ ADI\"}, {\"no\": 377, \"no_ujian\": \"HT54000\", \"nama\": \"SHAFA ANINDYA ISHARI\"}, {\"no\": 378, \"no_ujian\": \"HT54001\", \"nama\": \"SYAKIRA GHINA PRASETYANINGRUM\"}, {\"no\": 379, \"no_ujian\": \"HT54002\", \"nama\": \"VERA ASYIFA NADIANI\"}], \"9C\": [{\"no\": 380, \"no_ujian\": \"HT54003\", \"nama\": \"ADELARD DAMA SYAHPUTRA\"}, {\"no\": 381, \"no_ujian\": \"HT54004\", \"nama\": \"AHMAD ARYA ALFALAQ\"}, {\"no\": 382, \"no_ujian\": \"HT54005\", \"nama\": \"ALFIANO ARDHYNATA KUSUMA\"}, {\"no\": 383, \"no_ujian\": \"HT54006\", \"nama\": \"AUDREY RAMADHIAN\"}, {\"no\": 384, \"no_ujian\": \"HT54007\", \"nama\": \"BIMA PUTRA PRATAMA\"}, {\"no\": 385, \"no_ujian\": \"HT54008\", \"nama\": \"BINTANG PUTRA PRADITYA\"}, {\"no\": 386, \"no_ujian\": \"HT54009\", \"nama\": \"DANISWARA HARYO ATMOJO\"}, {\"no\": 387, \"no_ujian\": \"HT54010\", \"nama\": \"DEVINA PUTRI AZZAHRA\"}, {\"no\": 388, \"no_ujian\": \"HT54011\", \"nama\": \"DHANI AHMAD PRASETYO\"}, {\"no\": 389, \"no_ujian\": \"HT54012\", \"nama\": \"EL JABBAR SACHIIO FAYYADH SATRIYA\"}, {\"no\": 390, \"no_ujian\": \"HT54013\", \"nama\": \"ELFRIDA MARSHA CAMILIA\"}, {\"no\": 391, \"no_ujian\": \"HT54014\", \"nama\": \"ERLINDA APRILIA\"}, {\"no\": 392, \"no_ujian\": \"HT54015\", \"nama\": \"GALANG BAGUS RADJAKA MAULANA\"}, {\"no\": 393, \"no_ujian\": \"HT54016\", \"nama\": \"GALY AHMAD HABIBULLAH\"}, {\"no\": 394, \"no_ujian\": \"HT54017\", \"nama\": \"HAFIDZ AFLAH SUGIARTO\"}, {\"no\": 395, \"no_ujian\": \"HT54018\", \"nama\": \"ICHA AYUMI FEBRIANTY\"}, {\"no\": 396, \"no_ujian\": \"HT54019\", \"nama\": \"JEVON PUTRA RIZQULLAH\"}, {\"no\": 397, \"no_ujian\": \"HT54020\", \"nama\": \"KEYSHA AZZARHA PUTRI VERAWATI\"}, {\"no\": 398, \"no_ujian\": \"HT54021\", \"nama\": \"M. RAYSSA ALVARO ARDHANI\"}, {\"no\": 399, \"no_ujian\": \"HT54023\", \"nama\": \"MAULA YUSUF IBRAHIM\"}, {\"no\": 400, \"no_ujian\": \"HT54024\", \"nama\": \"MEGA TIARA CEMPAKA SARI\"}, {\"no\": 401, \"no_ujian\": \"HT54025\", \"nama\": \"MUHAMAD RIZKY OCTAVIAN\"}, {\"no\": 402, \"no_ujian\": \"HT54026\", \"nama\": \"MUHAMMAD BAHARUDDIN YUSUF\"}, {\"no\": 403, \"no_ujian\": \"HT54027\", \"nama\": \"MUHAMMAD RAMDHAN ADZIKRI KOESARVIAN\"}, {\"no\": 404, \"no_ujian\": \"HT54028\", \"nama\": \"NADIRA AZZAHRA RAHMATILLAH\"}, {\"no\": 405, \"no_ujian\": \"HT54029\", \"nama\": \"REVALINA NAILA HAFIZZAH\"}, {\"no\": 406, \"no_ujian\": \"HT54030\", \"nama\": \"RICKO ARVA CAHYO SAPUTRA\"}, {\"no\": 407, \"no_ujian\": \"HT54031\", \"nama\": \"RIVQY ARYA GUNAWAN\"}, {\"no\": 408, \"no_ujian\": \"HT54032\", \"nama\": \"TABINA PUTRI DANIELLA\"}, {\"no\": 409, \"no_ujian\": \"HT54033\", \"nama\": \"TATA QOLBU CHI RIANTI\"}, {\"no\": 410, \"no_ujian\": \"HT54034\", \"nama\": \"VANIA CANTIKA SABELA\"}], \"9D\": [{\"no\": 411, \"no_ujian\": \"HT54035\", \"nama\": \"ACHMAD REIHAN ABDILLAH\"}, {\"no\": 412, \"no_ujian\": \"HT54036\", \"nama\": \"AL FATHIR MAULANA SYAFIQ ARJASA\"}, {\"no\": 413, \"no_ujian\": \"HT54037\", \"nama\": \"ALEESYA ADINDA DEARYUSDI\"}, {\"no\": 414, \"no_ujian\": \"HT54038\", \"nama\": \"ANGELIKA FEBRIANA KURNIAWAN\"}, {\"no\": 415, \"no_ujian\": \"HT54039\", \"nama\": \"ARROYYAN RIZKY NUGROHO JATI\"}, {\"no\": 416, \"no_ujian\": \"HT54040\", \"nama\": \"AURA NAIFISHA PRASETIO\"}, {\"no\": 417, \"no_ujian\": \"HT54041\", \"nama\": \"CALISTA ECYA FAZAHRA\"}, {\"no\": 418, \"no_ujian\": \"HT54042\", \"nama\": \"CARISSA ANASTASYA ARDHIANI\"}, {\"no\": 419, \"no_ujian\": \"HT54043\", \"nama\": \"CELLO HAFIZ ADITYA MAULANA\"}, {\"no\": 420, \"no_ujian\": \"HT54044\", \"nama\": \"CHARINNA GAYATRI DEWI WIRIANDONO\"}, {\"no\": 421, \"no_ujian\": \"HT54045\", \"nama\": \"FARA RAYA NABILA\"}, {\"no\": 422, \"no_ujian\": \"HT54046\", \"nama\": \"GOWARDHANA KAGANGA PUTRANDYA NAYOTAMA\"}, {\"no\": 423, \"no_ujian\": \"HT54047\", \"nama\": \"M. IBRA FABIAN AL-QILBY\"}, {\"no\": 424, \"no_ujian\": \"HT54048\", \"nama\": \"MAHER SYAHLAL HASBASH NOEL PUTRA BANI\"}, {\"no\": 425, \"no_ujian\": \"HT54049\", \"nama\": \"MOCH. ARKADYNATA NALENDRA\"}, {\"no\": 426, \"no_ujian\": \"HT54050\", \"nama\": \"MOCHAMMAD AFIQ ZIDAN AL-ARIEF\"}, {\"no\": 427, \"no_ujian\": \"HT54051\", \"nama\": \"MOCHAMMAD NOVAL AINUL RIZKY\"}, {\"no\": 428, \"no_ujian\": \"HT54052\", \"nama\": \"MOH. ALI\"}, {\"no\": 429, \"no_ujian\": \"HT54053\", \"nama\": \"MUHAMMAD FATHIR IBRAHIMOVIK\"}, {\"no\": 430, \"no_ujian\": \"HT54054\", \"nama\": \"MUHAMMAD QIYAN ILHAM\"}, {\"no\": 431, \"no_ujian\": \"HT54055\", \"nama\": \"MUHAMMAD ZAKY ARIEZHUL UMAM\"}, {\"no\": 432, \"no_ujian\": \"HT54056\", \"nama\": \"NABILA PUTRI NUR ALIFA\"}, {\"no\": 433, \"no_ujian\": \"HT54057\", \"nama\": \"NABILLA AZKIYA ANNAJWA SALIM\"}, {\"no\": 434, \"no_ujian\": \"HT54058\", \"nama\": \"NADHIIRAH MELATI SISTRI ANSYAH\"}, {\"no\": 435, \"no_ujian\": \"HT54059\", \"nama\": \"NANDYA FIRLY FALISHA MAHARANI\"}, {\"no\": 436, \"no_ujian\": \"HT54060\", \"nama\": \"NAURA ATHA VIYANI\"}, {\"no\": 437, \"no_ujian\": \"HT54061\", \"nama\": \"RADITYA SYAWALI AKBAR WIRANATA\"}, {\"no\": 438, \"no_ujian\": \"HT54062\", \"nama\": \"SASMITO BUDI WICAKSONO\"}, {\"no\": 439, \"no_ujian\": \"HT54063\", \"nama\": \"SIFA'UL AULIA\"}, {\"no\": 440, \"no_ujian\": \"HT54064\", \"nama\": \"SYIFA JIHAN AQILA ADWA\"}, {\"no\": 441, \"no_ujian\": \"HT54065\", \"nama\": \"TETUKO RANU ANUGRAHING GUSTI\"}, {\"no\": 442, \"no_ujian\": \"HT54066\", \"nama\": \"YASER RAFA ATMAJAYA\"}], \"9E\": [{\"no\": 443, \"no_ujian\": \"HT54067\", \"nama\": \"ACHMAD FADHIL ARVIANSYAH\"}, {\"no\": 444, \"no_ujian\": \"HT54068\", \"nama\": \"ADELIO LEONEL MESSI\"}, {\"no\": 445, \"no_ujian\": \"HT54069\", \"nama\": \"ARCHELLIA ARINDA SISWOYO\"}, {\"no\": 446, \"no_ujian\": \"HT54070\", \"nama\": \"ASMAUL KHUSNA\"}, {\"no\": 447, \"no_ujian\": \"HT54071\", \"nama\": \"AZRIL ADITIAN SAPUTRA\"}, {\"no\": 448, \"no_ujian\": \"HT54072\", \"nama\": \"CLARA SURYA AGUSTINA\"}, {\"no\": 449, \"no_ujian\": \"HT54073\", \"nama\": \"GALIH PRADITYA KARDONO PUTRA\"}, {\"no\": 450, \"no_ujian\": \"HT54074\", \"nama\": \"JANITRA ADELIA PRASETYO\"}, {\"no\": 451, \"no_ujian\": \"HT54075\", \"nama\": \"KARIN AULIA PUTRI\"}, {\"no\": 452, \"no_ujian\": \"HT54076\", \"nama\": \"KEISHA AZZAHRA\"}, {\"no\": 453, \"no_ujian\": \"HT54077\", \"nama\": \"KHANZA JASMINE SUMARTONO\"}, {\"no\": 454, \"no_ujian\": \"HT54078\", \"nama\": \"LYDEA SYAKILA\"}, {\"no\": 455, \"no_ujian\": \"HT54079\", \"nama\": \"MIYAKE NAMORA NAULY\"}, {\"no\": 456, \"no_ujian\": \"HT54080\", \"nama\": \"MOCH. RAFAEL ADITIYA PRATAMA\"}, {\"no\": 457, \"no_ujian\": \"HT54081\", \"nama\": \"MUHAMAD HARIS DWI SUSANTO\"}, {\"no\": 458, \"no_ujian\": \"HT54082\", \"nama\": \"MUHAMMAD MEMOR DIMAS WONDA\"}, {\"no\": 459, \"no_ujian\": \"HT54083\", \"nama\": \"MUHAMMAD NASAR RILASTAKA\"}, {\"no\": 460, \"no_ujian\": \"HT54084\", \"nama\": \"MUHAMMAD RIFA'I AZMI\"}, {\"no\": 461, \"no_ujian\": \"HT54085\", \"nama\": \"MUHAMMAD YARDAN RAHMADDANI\"}, {\"no\": 462, \"no_ujian\": \"HT54086\", \"nama\": \"NAIRA REZTANIA PUTRI\"}, {\"no\": 463, \"no_ujian\": \"HT54087\", \"nama\": \"NATHA VIDYA AVARA\"}, {\"no\": 464, \"no_ujian\": \"HT54088\", \"nama\": \"NAZUWA CITRA CHABZANI\"}, {\"no\": 465, \"no_ujian\": \"HT54090\", \"nama\": \"PRADITYA EVANDRA ASSIDIQI\"}, {\"no\": 466, \"no_ujian\": \"HT54091\", \"nama\": \"RAFIF ATHALLAH PUTRA\"}, {\"no\": 467, \"no_ujian\": \"HT54092\", \"nama\": \"RAKHA KURNIANTONO\"}, {\"no\": 468, \"no_ujian\": \"HT54093\", \"nama\": \"REYHAN BAGAS SAPUTRA\"}, {\"no\": 469, \"no_ujian\": \"HT54095\", \"nama\": \"RIZKY RAHMAT FAUZA\"}, {\"no\": 470, \"no_ujian\": \"HT54096\", \"nama\": \"RIZQY AINUR ROFIQ\"}, {\"no\": 471, \"no_ujian\": \"HT54097\", \"nama\": \"ZAHRA SACHI KAYANA ANGGRAENI\"}, {\"no\": 472, \"no_ujian\": \"HT54098\", \"nama\": \"ZALSABILLA RISACH GIRINDRA\"}]};\n\nconst allData = $input.all().map(item => item.json);\n\n// 1. Mapping nilai dari CBT: (kelas + \"___\" + mapel + \"___\" + no_ujian) -> nilai\nconst scoreMap = {};\nconst subjectsPerClass = {}; // kelas -> Set mapel\n\nfor (const row of allData) {\n    const k = row.kelas || \"Tanpa_Kelas\";\n    const m = row.mata_pelajaran || \"Tanpa_Mapel\";\n    const nu = row.no_ujian || \"\";\n    \n    scoreMap[k + \"___\" + m + \"___\" + nu] = (row.nilai !== undefined) ? row.nilai : \"\";\n    \n    if (!subjectsPerClass[k]) {\n        subjectsPerClass[k] = new Set();\n    }\n    subjectsPerClass[k].add(m);\n}\n\n// 2. Generate CSV per kelas dan per mapel berdasarkan MASTER ROSTER\nconst output = [];\n\nfor (const kelas of Object.keys(subjectsPerClass).sort()) {\n    const roster = MASTER_ROSTER[kelas] || [];\n    const subjects = Array.from(subjectsPerClass[kelas]).sort();\n    \n    for (const mapel of subjects) {\n        let csvRows = [\n            `\"${kelas} - ${mapel}\"`,\n            \"no,no_ujian,nama,nilai\"\n        ];\n        \n        roster.forEach((s, idx) => {\n            const key = kelas + \"___\" + mapel + \"___\" + s.no_ujian;\n            const nilai = (scoreMap[key] !== undefined) ? scoreMap[key] : \"\";\n            \n            const cleanNama = (s.nama || \"\").replace(/\"/g, '\"\"');\n            const escapedNama = cleanNama.includes(\",\") ? `\"${cleanNama}\"` : cleanNama;\n            \n            csvRows.push([\n                idx + 1,\n                s.no_ujian,\n                escapedNama,\n                nilai\n            ].join(\",\"));\n        });\n        \n        const cleanMapelFilename = mapel.replace(/[\\\\/:*?\"<>| ]/g, \"_\");\n        const fileName = `rekap_${kelas}_${cleanMapelFilename}.csv`;\n        \n        output.push({\n            json: {\n                kelas: kelas,\n                mata_pelajaran: mapel,\n                total_siswa: roster.length,\n                fileName: fileName,\n                csv: csvRows.join(\"\\r\\n\")\n            }\n        });\n    }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        160
+      ],
+      "id": "c198a284-5f12-4011-9e28-1b2039401f99",
+      "name": "Group CSV per Kelas & Mapel"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "csv",
+        "binaryPropertyName": "data",
+        "options": {
+          "fileName": "={{ $json.fileName }}",
+          "addBOM": true
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1550,
+        160
+      ],
+      "id": "e9389274-5c91-4999-9ea2-e2518e388d12",
+      "name": "Generate CSV Files"
+    }
+  ],
+  "nodeGroups": [],
+  "activeVersion": {
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "7779a1e5-e4ff-4fac-8ddb-2d51fca7ab6f",
+        "name": "When clicking \u2018Execute workflow\u2019"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://assesment.cbt-smpht5.my.id/api/v1/token/generate",
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "email",
+                "value": "admin@shellrean.id"
+              },
+              {
+                "name": "password",
+                "value": "criticalpassword"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          224,
+          0
+        ],
+        "id": "6811dfee-0aa4-45fe-a036-ca6abf9228bd",
+        "name": "login "
+      },
+      {
+        "parameters": {
+          "url": "=https://assesment.cbt-smpht5.my.id/api/v1/jadwals",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "start_date",
+                "value": "={{ $('Webhook Trigger').first().json.query?.date || $today.format('yyyy-MM-dd') }}"
+              },
+              {
+                "name": "end_date",
+                "value": "={{ $('Webhook Trigger').first().json.query?.date || $today.format('yyyy-MM-dd') }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.data.token }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          464,
+          0
+        ],
+        "id": "8be95df4-c5cf-4532-b9ac-ad24d47a0e95",
+        "name": "GET Jadwal Aktif"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Mengambil data dari node GET Jadwal Aktif\nconst jadwalData = $input.first().json.data;\nconst results = [];\nconst jurusanId = \"3e41ce1d-af1b-4d2c-80e1-46f6dd261403\";\n\nfor (const jadwal of jadwalData) {\n    const jadwalId = jadwal.id;\n    const mapel = jadwal.alias;\n    \n    for (const grup of (jadwal.group || [])) {\n        let namaKelas = grup.name;\n        if (namaKelas.startsWith(\"lt-\")) {\n            namaKelas = namaKelas.replace(\"lt-\", \"\");\n        }\n        \n        results.push({\n            json: {\n                mapel: mapel,\n                kelas: namaKelas,\n                group_id: grup.id,\n                jadwal_id: jadwalId,\n                jurusan_ids: jurusanId,\n                page: 1\n            }\n        });\n    }\n}\n\nreturn results;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          0
+        ],
+        "id": "7aa98738-3c19-43d5-a6bd-111929c3356b",
+        "name": "Ekstrak Daftar Kelas"
+      },
+      {
+        "parameters": {
+          "url": "https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians",
+          "sendQuery": true,
+          "specifyQuery": "=keypair",
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "jadwal_id",
+                "value": "={{ $json.jadwal_id }}"
+              },
+              {
+                "name": "group_ids",
+                "value": "={{ $json.group_id }}"
+              },
+              {
+                "name": "jurusan_ids",
+                "value": "={{ $json.jurusan_ids }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $('login ').first().json.data.token }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          896,
+          0
+        ],
+        "id": "a542856e-3282-4bf1-9cf4-97cb7a7fd2ca",
+        "name": "GET Hasil Ujian Siswa"
+      },
+      {
+        "parameters": {
+          "jsCode": "const results = [];\nconst items = $input.all(); \n\nfor (let i = 0; i < items.length; i++) {\n    const prevInfo = $(\"Ekstrak Daftar Kelas\").all()[i].json;\n    const kelas = prevInfo.kelas;\n    const mapel = prevInfo.mapel || \"-\";\n    \n    let dataSiswa = [];\n    if (items[i].json.data && Array.isArray(items[i].json.data.data)) {\n        dataSiswa = items[i].json.data.data;\n    } else if (Array.isArray(items[i].json.data)) {\n        dataSiswa = items[i].json.data;\n    } else if (Array.isArray(items[i].json)) {\n        dataSiswa = items[i].json;\n    }\n    \n    for (const peserta of dataSiswa) {\n        results.push({\n            json: {\n                mata_pelajaran: mapel,\n                kelas: kelas, \n                no_ujian: peserta.peserta ? peserta.peserta.no_ujian : \"-\",\n                nama: peserta.peserta ? peserta.peserta.name : \"-\",\n                nilai: peserta.check_point !== undefined ? peserta.check_point : 0\n            }\n        });\n    }\n}\n\nreturn results;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1104,
+          0
+        ],
+        "id": "3ef6a767-a5d3-41a0-a533-c77556aed5b8",
+        "name": "Format Data (+Kelas)"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Mengambil semua 146 data dari node sebelumnya\nconst allData = $input.all().map(item => item.json);\n\n// 1. Mengelompokkan data berdasarkan 'kelas'\nconst groupedData = {};\nfor (const row of allData) {\n    if (!groupedData[row.kelas]) {\n        groupedData[row.kelas] = [];\n    }\n    groupedData[row.kelas].push(row);\n}\n\n// 2. Membuat output HTML untuk masing-masing kelas\nconst output = [];\nfor (const kelas in groupedData) {\n    const siswaList = groupedData[kelas];\n    \n    // Menyusun baris tabel untuk setiap siswa\n    let tableRows = \"\";\n    siswaList.forEach((siswa, index) => {\n        tableRows += `\n        <tr>\n            <td style=\"text-align: center;\">${index + 1}</td>\n            <td>${siswa.no_ujian}</td>\n            <td>${siswa.nama}</td>\n            <td style=\"text-align: center;\">${siswa.hasil_akhir}</td>\n        </tr>`;\n    });\n\n    // Menggabungkan ke dalam template HTML lengkap\n    const html = `\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <style>\n        body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; }\n        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; }\n        .header h1 { font-size: 20pt; margin: 0 0 5px 0; }\n        .header h2 { font-size: 14pt; margin: 0; font-weight: normal; }\n        table { width: 100%; border-collapse: collapse; margin-top: 10px; }\n        th, td { padding: 8px; border: 1px solid #000; }\n        th { background-color: #2c3e50; color: #fff; text-align: center; }\n        tr:nth-child(even) { background-color: #f9f9f9; }\n    </style>\n    </head>\n    <body>\n        <div class=\"header\">\n            <h1>DAFTAR HASIL UJIAN</h1>\n            <h2>Kelas ${kelas}</h2>\n        </div>\n        <table>\n            <thead>\n                <tr>\n                    <th style=\"width: 5%;\">No</th>\n                    <th style=\"width: 25%;\">No Ujian</th>\n                    <th style=\"width: 55%;\">Nama</th>\n                    <th style=\"width: 15%;\">Hasil Akhir</th>\n                </tr>\n            </thead>\n            <tbody>\n                ${tableRows}\n            </tbody>\n        </table>\n    </body>\n    </html>`;\n    // Mendorong hasilnya sebagai item baru\n    output.push({\n        json: {\n            filename: `Nilai_${kelas}.pdf`,\n            kelas: kelas,\n            html: html\n        }\n    });\n}\n\nreturn output;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1328,
+          0
+        ],
+        "id": "091ec93c-acb4-4e8b-8fed-96cd5aca13ec",
+        "name": "Generate HTML Tabel",
+        "notes": "const : {}"
+      },
+      {
+        "parameters": {
+          "height": 144
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -16,
+          -224
+        ],
+        "id": "e506a863-92a2-4ef7-b218-3059bbcd12e1",
+        "name": "Sticky Note"
+      },
+      {
+        "parameters": {
+          "httpMethod": "GET",
+          "path": "rekap-nilai",
+          "responseMode": "onReceived",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          150
+        ],
+        "id": "c71a3962-d6ba-4a3e-b2d9-a09b30c45e12",
+        "name": "Webhook Trigger",
+        "webhookId": "rekap-nilai-webhook"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Master Roster dari format-group-member-prn-import.xlsx\nconst MASTER_ROSTER = {\"7A\": [{\"no\": 1, \"no_ujian\": \"HT54265\", \"nama\": \"ABDIEL NAUFAL\"}, {\"no\": 2, \"no_ujian\": \"HT54266\", \"nama\": \"ACHMAD BISMA JAYA PUTRA\"}, {\"no\": 3, \"no_ujian\": \"HT54267\", \"nama\": \"ACHMAD FAHMI AMMAR\"}, {\"no\": 4, \"no_ujian\": \"HT54268\", \"nama\": \"ACHMAD ZHAFAR DEWA PRATAMA\"}, {\"no\": 5, \"no_ujian\": \"HT54269\", \"nama\": \"AHMAD IBAD AL BUKHORI\"}, {\"no\": 6, \"no_ujian\": \"HT54270\", \"nama\": \"AIR NAKHLA ABDILLAH\"}, {\"no\": 7, \"no_ujian\": \"HT54271\", \"nama\": \"AISYAH INAYATUL OCTAVIA\"}, {\"no\": 8, \"no_ujian\": \"HT54272\", \"nama\": \"ALIF AZKA AL GHIFARI\"}, {\"no\": 9, \"no_ujian\": \"HT54273\", \"nama\": \"AMANDA NABILA PUTRI\"}, {\"no\": 10, \"no_ujian\": \"HT54274\", \"nama\": \"ANINDHITA PRAMESWARI\"}, {\"no\": 11, \"no_ujian\": \"HT54275\", \"nama\": \"ARZAHWA CHIKKA ANDARLIK\"}, {\"no\": 12, \"no_ujian\": \"HT54276\", \"nama\": \"AZAHRA BALQIS HABIBAH\"}, {\"no\": 13, \"no_ujian\": \"HT54277\", \"nama\": \"CHELSEA FITRI RAMADANI\"}, {\"no\": 14, \"no_ujian\": \"HT54278\", \"nama\": \"CLARISSA PUTRI NOVELITA\"}, {\"no\": 15, \"no_ujian\": \"HT54279\", \"nama\": \"FARELLIO DILLON DWI ALDIANO\"}, {\"no\": 16, \"no_ujian\": \"HT54280\", \"nama\": \"JUVENAL ASKA VIRENDRA\"}, {\"no\": 17, \"no_ujian\": \"HT54281\", \"nama\": \"KHANAKMA ALDEBARAN SUMARTONO\"}, {\"no\": 18, \"no_ujian\": \"HT54282\", \"nama\": \"KIRANA CARISSA PUTRI\"}, {\"no\": 19, \"no_ujian\": \"HT54283\", \"nama\": \"LAURA AURERA RIZKY\"}, {\"no\": 20, \"no_ujian\": \"HT54284\", \"nama\": \"MOCH. SOFYAN ATSAURI\"}, {\"no\": 21, \"no_ujian\": \"HT54285\", \"nama\": \"MUHAMMAD ARZACHEL ALKHALIFI\"}, {\"no\": 22, \"no_ujian\": \"HT54286\", \"nama\": \"MUHAMMAD CAHYA RAMADHAN\"}, {\"no\": 23, \"no_ujian\": \"HT54287\", \"nama\": \"MUHAMMAD IBNU MUTA'ALI\"}, {\"no\": 24, \"no_ujian\": \"HT54288\", \"nama\": \"NEYSA QUINNOVA AZARIN\"}, {\"no\": 25, \"no_ujian\": \"HT54289\", \"nama\": \"RAFA PUTRA AL-HAFIIDH\"}, {\"no\": 26, \"no_ujian\": \"HT54290\", \"nama\": \"RAFFI KURNIAWAN\"}, {\"no\": 27, \"no_ujian\": \"HT54291\", \"nama\": \"RASTRA ANGGARA\"}, {\"no\": 28, \"no_ujian\": \"HT54292\", \"nama\": \"RASYA ADITYA PRATAMA\"}, {\"no\": 29, \"no_ujian\": \"HT54293\", \"nama\": \"SAFURA MARSYA ZACCHEO\"}, {\"no\": 30, \"no_ujian\": \"HT54294\", \"nama\": \"SYAFAH NAYLA AZIZAH\"}, {\"no\": 31, \"no_ujian\": \"HT54295\", \"nama\": \"VIRZA ANGGREINI\"}, {\"no\": 32, \"no_ujian\": \"HT54296\", \"nama\": \"VISTHA AYU RAHMADANTI\"}], \"7B\": [{\"no\": 33, \"no_ujian\": \"HT54297\", \"nama\": \"AALEYA NAURA CAHYA PUTRI\"}, {\"no\": 34, \"no_ujian\": \"HT54298\", \"nama\": \"AARON HAFIDZ RAMADITYA\"}, {\"no\": 35, \"no_ujian\": \"HT54299\", \"nama\": \"ACHMAD IVANO AUGUSTA HABIBIE\"}, {\"no\": 36, \"no_ujian\": \"HT54300\", \"nama\": \"AHMAD FASHA SATRIA A\"}, {\"no\": 37, \"no_ujian\": \"HT54301\", \"nama\": \"AIRA PUTRI RAMADANI\"}, {\"no\": 38, \"no_ujian\": \"HT54302\", \"nama\": \"AISYAH ZASKYA AZZAHRA\"}, {\"no\": 39, \"no_ujian\": \"HT54303\", \"nama\": \"ALMIRA ELVINA ZAHIRAH\"}, {\"no\": 40, \"no_ujian\": \"HT54304\", \"nama\": \"ANDIKA PAMUNGKAS\"}, {\"no\": 41, \"no_ujian\": \"HT54305\", \"nama\": \"ANGGITA KAYLA PUTRI\"}, {\"no\": 42, \"no_ujian\": \"HT54306\", \"nama\": \"ARALDO MARVY BASKORO\"}, {\"no\": 43, \"no_ujian\": \"HT54307\", \"nama\": \"ASKANA ATALLAH GHAISAN\"}, {\"no\": 44, \"no_ujian\": \"HT54308\", \"nama\": \"ASSYIFA NADIRA ANDRIANI\"}, {\"no\": 45, \"no_ujian\": \"HT54309\", \"nama\": \"AUFA ATHA FALAH WILIYARDO\"}, {\"no\": 46, \"no_ujian\": \"HT54310\", \"nama\": \"AZKA AKBAR RAMADHAN\"}, {\"no\": 47, \"no_ujian\": \"HT54311\", \"nama\": \"FELISYA ELEANOUR RAMAZOTY\"}, {\"no\": 48, \"no_ujian\": \"HT54312\", \"nama\": \"JEREMY SUGIARTO WIJAYA\"}, {\"no\": 49, \"no_ujian\": \"HT54313\", \"nama\": \"JIHAN MEISYHA FAUZIYAH BELLA\"}, {\"no\": 50, \"no_ujian\": \"HT54314\", \"nama\": \"KEENARA DANADYAKSA ARSYA PUTRA\"}, {\"no\": 51, \"no_ujian\": \"HT54315\", \"nama\": \"KHANZA AZZALEA IKHTIARIVALTYNE\"}, {\"no\": 52, \"no_ujian\": \"HT54316\", \"nama\": \"MUHAMMAD ALFADLI MUSTHOFA\"}, {\"no\": 53, \"no_ujian\": \"HT54317\", \"nama\": \"MUHAMMAD ALIF FIRDAUS\"}, {\"no\": 54, \"no_ujian\": \"HT54318\", \"nama\": \"MUHAMMAD AZWAR YARIL PRATAMA\"}, {\"no\": 55, \"no_ujian\": \"HT54319\", \"nama\": \"MUHAMMAD AZZAM PRAYOGA\"}, {\"no\": 56, \"no_ujian\": \"HT54320\", \"nama\": \"MUHAMMAD BAGUS TRI PERMADI\"}, {\"no\": 57, \"no_ujian\": \"HT54321\", \"nama\": \"MUHAMMAD FAIZ ZAYDAN HABIBI\"}, {\"no\": 58, \"no_ujian\": \"HT54322\", \"nama\": \"MUHAMMAD LUTHFI FAITH GHAFFAR\"}, {\"no\": 59, \"no_ujian\": \"HT54323\", \"nama\": \"MUHAMMAD REYHAN DAFFA WIRATAMA\"}, {\"no\": 60, \"no_ujian\": \"HT54324\", \"nama\": \"NAJWA ASYILAH SYAQILLA PURNAWAN\"}, {\"no\": 61, \"no_ujian\": \"HT54325\", \"nama\": \"NIMAS KHOLIFAH ZIADATUS SA'AADAH\"}, {\"no\": 62, \"no_ujian\": \"HT54326\", \"nama\": \"SABRINA ATTA SYAM HAQIQI\"}, {\"no\": 63, \"no_ujian\": \"HT54327\", \"nama\": \"SITI NUR ALISYA\"}, {\"no\": 64, \"no_ujian\": \"HT54328\", \"nama\": \"ZEEST ZEHRA SABRINA POERNOMO\"}], \"7C\": [{\"no\": 65, \"no_ujian\": \"HT54329\", \"nama\": \"ADITYA ARGANI GAFFAR\"}, {\"no\": 66, \"no_ujian\": \"HT54330\", \"nama\": \"ALIMAZKA AQIL ATAAMMAR KHOIRAN\"}, {\"no\": 67, \"no_ujian\": \"HT54331\", \"nama\": \"ANANDA SAFIRA ANGGRAINI\"}, {\"no\": 68, \"no_ujian\": \"HT54332\", \"nama\": \"AQILLA SHIDQIYYAH REFANDI\"}, {\"no\": 69, \"no_ujian\": \"HT54333\", \"nama\": \"ARSHAKA FACHRYAL NOVARIANTO\"}, {\"no\": 70, \"no_ujian\": \"HT54334\", \"nama\": \"ARYA BAGAS ARDINATA\"}, {\"no\": 71, \"no_ujian\": \"HT54335\", \"nama\": \"BALQIS ADZRA HAFIZA MACHFUT\"}, {\"no\": 72, \"no_ujian\": \"HT54336\", \"nama\": \"BRONTOZEN AL JAWI SYARIK\"}, {\"no\": 73, \"no_ujian\": \"HT54337\", \"nama\": \"D'NADIRA BERYL PUTRI PRASETYA\"}, {\"no\": 74, \"no_ujian\": \"HT54338\", \"nama\": \"FELICIA PUSPITA RAHMADANI\"}, {\"no\": 75, \"no_ujian\": \"HT54339\", \"nama\": \"FERNANDO IRFAN RAIZA\"}, {\"no\": 76, \"no_ujian\": \"HT54340\", \"nama\": \"GITANJALI SANDI ARTHA PUTRI\"}, {\"no\": 77, \"no_ujian\": \"HT54341\", \"nama\": \"GUNTUR SATRIA KURNIAWAN\"}, {\"no\": 78, \"no_ujian\": \"HT54342\", \"nama\": \"KHAIRA VANZA PUTRI RIZALI\"}, {\"no\": 79, \"no_ujian\": \"HT54343\", \"nama\": \"MAULANA ORLANDO ZAQIN\"}, {\"no\": 80, \"no_ujian\": \"HT54344\", \"nama\": \"MOIZAFRAN WINZA PUTRA\"}, {\"no\": 81, \"no_ujian\": \"HT54345\", \"nama\": \"MUCHAMMAD RIZKY ROMADHON\"}, {\"no\": 82, \"no_ujian\": \"HT54346\", \"nama\": \"MUHAMMAD ALFATH AL FARIZI\"}, {\"no\": 83, \"no_ujian\": \"HT54347\", \"nama\": \"NADYN ALYSSA\"}, {\"no\": 84, \"no_ujian\": \"HT54348\", \"nama\": \"NELVIA FITRIAH AZZAHRA\"}, {\"no\": 85, \"no_ujian\": \"HT54349\", \"nama\": \"PRAJNA SIVAN ANGGARA KRISHNA\"}, {\"no\": 86, \"no_ujian\": \"HT54350\", \"nama\": \"RAKA YAQDAN ASSAID\"}, {\"no\": 87, \"no_ujian\": \"HT54351\", \"nama\": \"RAYHAN AURENDRA NUR RASYID\"}, {\"no\": 88, \"no_ujian\": \"HT54352\", \"nama\": \"RIAN DWITAMA\"}, {\"no\": 89, \"no_ujian\": \"HT54353\", \"nama\": \"SABRIENNA SARI WIDASETIAWAN\"}, {\"no\": 90, \"no_ujian\": \"HT54354\", \"nama\": \"SAKURA ARDELIA RABBANI\"}, {\"no\": 91, \"no_ujian\": \"HT54355\", \"nama\": \"SHAREL SANDYA PUTRA YUSUF\"}, {\"no\": 92, \"no_ujian\": \"HT54356\", \"nama\": \"SYAFA'ATUL MASRUROH\"}, {\"no\": 93, \"no_ujian\": \"HT54357\", \"nama\": \"SYAMSIR DEZRANATA KAHAR\"}, {\"no\": 94, \"no_ujian\": \"HT54358\", \"nama\": \"YASMIN MEISYA PUTRI\"}, {\"no\": 95, \"no_ujian\": \"HT54359\", \"nama\": \"ZAHRA ANDARA AGUSTIN\"}, {\"no\": 96, \"no_ujian\": \"HT54360\", \"nama\": \"ZHAFRAN IBRAHIMOVIC\"}], \"7D\": [{\"no\": 97, \"no_ujian\": \"HT54361\", \"nama\": \"'ALAINA ROCHMATIKA AS SARI\"}, {\"no\": 98, \"no_ujian\": \"HT54362\", \"nama\": \"AFIQAH FITRI AZZAHRA\"}, {\"no\": 99, \"no_ujian\": \"HT54363\", \"nama\": \"AHMAD JABAL NUR ADAM\"}, {\"no\": 100, \"no_ujian\": \"HT54364\", \"nama\": \"ALANA SADIA AZZAHRA\"}, {\"no\": 101, \"no_ujian\": \"HT54365\", \"nama\": \"ASYRAF FAITH LATIF ATHAILLAH\"}, {\"no\": 102, \"no_ujian\": \"HT54366\", \"nama\": \"ATHALLAH OZIEL ZAHRAN WIYAN\"}, {\"no\": 103, \"no_ujian\": \"HT54367\", \"nama\": \"AZKA TIRTA PRATAMA\"}, {\"no\": 104, \"no_ujian\": \"HT54368\", \"nama\": \"AQILLA ZAFARANI NARAYA\"}, {\"no\": 105, \"no_ujian\": \"HT54369\", \"nama\": \"BILQIS FAIHA SYAKIRAH\"}, {\"no\": 106, \"no_ujian\": \"HT54370\", \"nama\": \"CHABIBA KHOIRUN NISA\"}, {\"no\": 107, \"no_ujian\": \"HT54371\", \"nama\": \"DEVAN YUDISTIRA ARYAMANTA\"}, {\"no\": 108, \"no_ujian\": \"HT54372\", \"nama\": \"DEVI CITRA RESMI SANTYAPITALOKA\"}, {\"no\": 109, \"no_ujian\": \"HT54373\", \"nama\": \"GRIEZELDA KAYLIEN KWOK\"}, {\"no\": 110, \"no_ujian\": \"HT54374\", \"nama\": \"GUSTI ELFIRA LUQLUK IL MAQNUM\"}, {\"no\": 111, \"no_ujian\": \"HT54375\", \"nama\": \"GWYNETH ANASHTHASYA IBADI\"}, {\"no\": 112, \"no_ujian\": \"HT54376\", \"nama\": \"KIRANI PUTRI NOVANKA\"}, {\"no\": 113, \"no_ujian\": \"HT54377\", \"nama\": \"MOCHAMAD NAJIB SYAFI'I\"}, {\"no\": 114, \"no_ujian\": \"HT54378\", \"nama\": \"MUHAMMAD ALFIAN FEBRIRANTO\"}, {\"no\": 115, \"no_ujian\": \"HT54379\", \"nama\": \"MUHAMMAD ERICK ZULFIKAR ANWAR\"}, {\"no\": 116, \"no_ujian\": \"HT54380\", \"nama\": \"MUHAMMAD GHALY SA'ADI RIF'AT\"}, {\"no\": 117, \"no_ujian\": \"HT54381\", \"nama\": \"MUHAMMAD HAZIC RAYYAN\"}, {\"no\": 118, \"no_ujian\": \"HT54382\", \"nama\": \"MUHAMMAD SYAFIQ IBRAHIM\"}, {\"no\": 119, \"no_ujian\": \"HT54383\", \"nama\": \"NARAYA ZAHSYAFENA ANANDITA\"}, {\"no\": 120, \"no_ujian\": \"HT54384\", \"nama\": \"NIZAR HARIS RAHMAN\"}, {\"no\": 121, \"no_ujian\": \"HT54385\", \"nama\": \"RAFFANAYA ALFAREEZY ZIDNEE\"}, {\"no\": 122, \"no_ujian\": \"HT54386\", \"nama\": \"RAFIF ZAYDAN ALIFIANO\"}, {\"no\": 123, \"no_ujian\": \"HT54387\", \"nama\": \"SAKHA BAYU SYANDANA\"}, {\"no\": 124, \"no_ujian\": \"HT54388\", \"nama\": \"SALSABILLA PUTRI AZZAHRA\"}, {\"no\": 125, \"no_ujian\": \"HT54389\", \"nama\": \"SEKAR KINARA KURNIADEWI\"}, {\"no\": 126, \"no_ujian\": \"HT54390\", \"nama\": \"TRISTAN AVA MAULANA\"}, {\"no\": 127, \"no_ujian\": \"HT54391\", \"nama\": \"ZAHIRA ADELIA SALMA\"}, {\"no\": 128, \"no_ujian\": \"HT54392\", \"nama\": \"ZAIN GIBRAN HELINTAR ATMADJA\"}], \"7E\": [{\"no\": 129, \"no_ujian\": \"HT54393\", \"nama\": \"ABIDZAR ARKAAN ABDILLAH NAILLUNNABHAN\"}, {\"no\": 130, \"no_ujian\": \"HT54394\", \"nama\": \"ADELLE NATHANIA PRASTIYO\"}, {\"no\": 131, \"no_ujian\": \"HT54395\", \"nama\": \"ALVIN GAVRIEL RORONG\"}, {\"no\": 132, \"no_ujian\": \"HT54396\", \"nama\": \"ANAK AGUNG ARSHA RAJENDRA KAHFI\"}, {\"no\": 133, \"no_ujian\": \"HT54397\", \"nama\": \"ARSY LINTANG JENAR\"}, {\"no\": 134, \"no_ujian\": \"HT54398\", \"nama\": \"AZKA ADHYASTA RAHMADI\"}, {\"no\": 135, \"no_ujian\": \"HT54399\", \"nama\": \"BIMA RAMA PRATAMA\"}, {\"no\": 136, \"no_ujian\": \"HT54400\", \"nama\": \"CHANTIKA ALFOURA RAMADHANI\"}, {\"no\": 137, \"no_ujian\": \"HT54401\", \"nama\": \"ELMIRA AZZAHRA PUTRI\"}, {\"no\": 138, \"no_ujian\": \"HT54402\", \"nama\": \"HERLENA CLAUDYA RAHMADHANY\"}, {\"no\": 139, \"no_ujian\": \"HT54403\", \"nama\": \"IZZA RAHMADHANI\"}, {\"no\": 140, \"no_ujian\": \"HT54404\", \"nama\": \"JOEL MANURUNG\"}, {\"no\": 141, \"no_ujian\": \"HT54405\", \"nama\": \"KENZO ALVARO AQUINO WIBISONO\"}, {\"no\": 142, \"no_ujian\": \"HT54406\", \"nama\": \"KEZIA ZIZI ARETHA\"}, {\"no\": 143, \"no_ujian\": \"HT54407\", \"nama\": \"KHAYYISSA GHASANI\"}, {\"no\": 144, \"no_ujian\": \"HT54408\", \"nama\": \"KIRANA LARASATI PUSPITA DEWI\"}, {\"no\": 145, \"no_ujian\": \"HT54409\", \"nama\": \"MAKAILA SHAUMI RAMADHINA\"}, {\"no\": 146, \"no_ujian\": \"HT54410\", \"nama\": \"MUHAMMAD FATHAN\"}, {\"no\": 147, \"no_ujian\": \"HT54411\", \"nama\": \"MUHAMMAD HAMZAH IZZUL HAQ\"}, {\"no\": 148, \"no_ujian\": \"HT54412\", \"nama\": \"NILUH JANI SURYA\"}, {\"no\": 149, \"no_ujian\": \"HT54413\", \"nama\": \"PRIYANKA KALILA SATRYAWAN\"}, {\"no\": 150, \"no_ujian\": \"HT54414\", \"nama\": \"RAFFA AZZA SAPUTRA\"}, {\"no\": 151, \"no_ujian\": \"HT54415\", \"nama\": \"RAJJA ATHA NURVYANTO\"}, {\"no\": 152, \"no_ujian\": \"HT54416\", \"nama\": \"RIZKY LATIEF SAPUTRA\"}, {\"no\": 153, \"no_ujian\": \"HT54417\", \"nama\": \"SATRIA EKA MAGENDHA PUTRA\"}, {\"no\": 154, \"no_ujian\": \"HT54418\", \"nama\": \"SHEVA AQILLAH RAMADHANI\"}, {\"no\": 155, \"no_ujian\": \"HT54419\", \"nama\": \"SILVI AMALIA\"}, {\"no\": 156, \"no_ujian\": \"HT54420\", \"nama\": \"TAHNIA SYAKIRA\"}, {\"no\": 157, \"no_ujian\": \"HT54421\", \"nama\": \"TARUNA SATRIA BAGASKARA\"}, {\"no\": 158, \"no_ujian\": \"HT54422\", \"nama\": \"VALENTINO PRIESTYO WAHYUDI\"}, {\"no\": 159, \"no_ujian\": \"HT54423\", \"nama\": \"VINCENT YUAN NAEL\"}, {\"no\": 160, \"no_ujian\": \"HT54424\", \"nama\": \"VIRTA AGUSTIN\"}], \"8A\": [{\"no\": 161, \"no_ujian\": \"HT54103\", \"nama\": \"ABIYAKSA BIMA CANDRA PUTRA\"}, {\"no\": 162, \"no_ujian\": \"HT54104\", \"nama\": \"AFIQA NAJWA ARIF\"}, {\"no\": 163, \"no_ujian\": \"HT54105\", \"nama\": \"AISYAH AFIQAH RAMADHANI CHANIAGO\"}, {\"no\": 164, \"no_ujian\": \"HT54106\", \"nama\": \"AL AZAM KABID FIRMANSHA\"}, {\"no\": 165, \"no_ujian\": \"HT54107\", \"nama\": \"ALEXANDER SAVERO\"}, {\"no\": 166, \"no_ujian\": \"HT54109\", \"nama\": \"ALIFIANDRA TSAQIF ATHAYA\"}, {\"no\": 167, \"no_ujian\": \"HT54110\", \"nama\": \"ANANDITA AQILAH SHIDQIYAH\"}, {\"no\": 168, \"no_ujian\": \"HT54111\", \"nama\": \"ANTARAJA BAYU PUTRA\"}, {\"no\": 169, \"no_ujian\": \"HT54112\", \"nama\": \"ASSYIFA NIRMALA HARTONO\"}, {\"no\": 170, \"no_ujian\": \"HT54113\", \"nama\": \"AUFAR ALVARO SUNARTO\"}, {\"no\": 171, \"no_ujian\": \"HT54114\", \"nama\": \"AUGISTAMAYORA LAFANJANI ERFALKY\"}, {\"no\": 172, \"no_ujian\": \"HT54115\", \"nama\": \"AZAKA PURNA RAMADHAN\"}, {\"no\": 173, \"no_ujian\": \"HT54116\", \"nama\": \"CHERYL FAYYOLA CALISTA RAJWA\"}, {\"no\": 174, \"no_ujian\": \"HT54117\", \"nama\": \"ERLANGGA ALBIANO PAMBA\"}, {\"no\": 175, \"no_ujian\": \"HT54118\", \"nama\": \"GANESYA FERANI PUTRI KURNIAWAN\"}, {\"no\": 176, \"no_ujian\": \"HT54119\", \"nama\": \"GEBRILLIA NAURA GUIN\"}, {\"no\": 177, \"no_ujian\": \"HT54120\", \"nama\": \"GRISELDA HANY TRIASANJAYA\"}, {\"no\": 178, \"no_ujian\": \"HT54121\", \"nama\": \"KEYZA PUTRI AULIA RACHMA\"}, {\"no\": 179, \"no_ujian\": \"HT54122\", \"nama\": \"MAULYDIA RANIA ASSYIFA\"}, {\"no\": 180, \"no_ujian\": \"HT54123\", \"nama\": \"MELVINNO EDSEL GAOZAN SIREGAR\"}, {\"no\": 181, \"no_ujian\": \"HT54124\", \"nama\": \"MOCHAMAD ALAM GANI SYAPUTRA\"}, {\"no\": 182, \"no_ujian\": \"HT54125\", \"nama\": \"MUHAMMAD AULIA RAAFI\"}, {\"no\": 183, \"no_ujian\": \"HT54127\", \"nama\": \"NASHWA AULYA THOLIB\"}, {\"no\": 184, \"no_ujian\": \"HT54128\", \"nama\": \"RIZQULLAH AZHAR SYAHPUTRA\"}, {\"no\": 185, \"no_ujian\": \"HT54130\", \"nama\": \"SIGIT SETYO LESMONO\"}, {\"no\": 186, \"no_ujian\": \"HT54131\", \"nama\": \"SILVY PERMATA SARI\"}, {\"no\": 187, \"no_ujian\": \"HT54132\", \"nama\": \"TARAKA MIRZA ARDHANI PUTRA RACHMAD\"}, {\"no\": 188, \"no_ujian\": \"HT54133\", \"nama\": \"VINDRA KAYLA PUTRICATYA\"}, {\"no\": 189, \"no_ujian\": \"HT54134\", \"nama\": \"XAVIER CAILAN IBRAHIM\"}, {\"no\": 190, \"no_ujian\": \"HT54264\", \"nama\": \"THANIA AZZAHRA SEPTIANI\"}, {\"no\": 191, \"no_ujian\": \"HT54425\", \"nama\": \"DIWANGGA JAYAWARDANA\"}, {\"no\": 192, \"no_ujian\": \"HT54427\", \"nama\": \"CAYSAR HARUNA MOEKTI\"}], \"8B\": [{\"no\": 193, \"no_ujian\": \"HT54135\", \"nama\": \"ABRAHAM ALEXI PRATAMA\"}, {\"no\": 194, \"no_ujian\": \"HT54136\", \"nama\": \"ACHMAD DEVAN ALFIANO\"}, {\"no\": 195, \"no_ujian\": \"HT54137\", \"nama\": \"AISYAH FAIRUZ ZIA\"}, {\"no\": 196, \"no_ujian\": \"HT54138\", \"nama\": \"ALESHA MUMTAZAH PRATIWI\"}, {\"no\": 197, \"no_ujian\": \"HT54139\", \"nama\": \"AMELIA PUTRI THENIA\"}, {\"no\": 198, \"no_ujian\": \"HT54140\", \"nama\": \"AQILA ZAZKIA PUTRI WAHYUDI\"}, {\"no\": 199, \"no_ujian\": \"HT54141\", \"nama\": \"AZZAHRA AVIKA RAMADHANI\"}, {\"no\": 200, \"no_ujian\": \"HT54142\", \"nama\": \"CALLISTHA PUTRI AZZALYA\"}, {\"no\": 201, \"no_ujian\": \"HT54143\", \"nama\": \"DENANTARA RAGA HERMAWAN\"}, {\"no\": 202, \"no_ujian\": \"HT54144\", \"nama\": \"ELGA PRABU THRIEASAMBUDI\"}, {\"no\": 203, \"no_ujian\": \"HT54145\", \"nama\": \"FABIAN ELFANO FELANI\"}, {\"no\": 204, \"no_ujian\": \"HT54146\", \"nama\": \"FADHIL RAHMAN HIDAYAT\"}, {\"no\": 205, \"no_ujian\": \"HT54147\", \"nama\": \"FANO BAKHTIAR FIRMANSYAH\"}, {\"no\": 206, \"no_ujian\": \"HT54148\", \"nama\": \"FARID MAULANA PUTRA\"}, {\"no\": 207, \"no_ujian\": \"HT54149\", \"nama\": \"FINO OZIL ORLANDO\"}, {\"no\": 208, \"no_ujian\": \"HT54150\", \"nama\": \"FIRZA NAYRA ARFANDI\"}, {\"no\": 209, \"no_ujian\": \"HT54151\", \"nama\": \"GEBYLIA ANJANI\"}, {\"no\": 210, \"no_ujian\": \"HT54152\", \"nama\": \"HARI SETYO WIBOWO\"}, {\"no\": 211, \"no_ujian\": \"HT54153\", \"nama\": \"KAYLA BELINDA NURAINI\"}, {\"no\": 212, \"no_ujian\": \"HT54154\", \"nama\": \"LUCKY FERDINAN PUTRA ANANTA\"}, {\"no\": 213, \"no_ujian\": \"HT54155\", \"nama\": \"M. NUGIE ALDIANO APRILIO\"}, {\"no\": 214, \"no_ujian\": \"HT54156\", \"nama\": \"MAIRA NAZNIN\"}, {\"no\": 215, \"no_ujian\": \"HT54157\", \"nama\": \"MAULANA EZA ARIFIN\"}, {\"no\": 216, \"no_ujian\": \"HT54158\", \"nama\": \"MICHAEL KURNIAWAN SANTOSO\"}, {\"no\": 217, \"no_ujian\": \"HT54159\", \"nama\": \"MUHAMMAD NURISMA ALI AKBAR\"}, {\"no\": 218, \"no_ujian\": \"HT54160\", \"nama\": \"NAULITA MAYZA\"}, {\"no\": 219, \"no_ujian\": \"HT54161\", \"nama\": \"NAYARA AZALEA\"}, {\"no\": 220, \"no_ujian\": \"HT54162\", \"nama\": \"RAMIZAH ALYA SYARIF\"}, {\"no\": 221, \"no_ujian\": \"HT54163\", \"nama\": \"SHEVANO FABIAN GEMINTANG\"}, {\"no\": 222, \"no_ujian\": \"HT54164\", \"nama\": \"SOFIA MARSHA AZZAHRA\"}, {\"no\": 223, \"no_ujian\": \"HT54165\", \"nama\": \"VICKY INTISAR PRATAMA\"}, {\"no\": 224, \"no_ujian\": \"HT54166\", \"nama\": \"ZAKY FATTAH ABBASY\"}], \"8C\": [{\"no\": 225, \"no_ujian\": \"HT54167\", \"nama\": \"ABDAN NIZAM PALARAS\"}, {\"no\": 226, \"no_ujian\": \"HT54168\", \"nama\": \"AL GHOZALI OKSTYA MUHIBBIN\"}, {\"no\": 227, \"no_ujian\": \"HT54169\", \"nama\": \"ALYCIA CAHYANING PUTRI\"}, {\"no\": 228, \"no_ujian\": \"HT54170\", \"nama\": \"ANISA SALSABILA ANANDA PRASETYO\"}, {\"no\": 229, \"no_ujian\": \"HT54171\", \"nama\": \"ANISATUL MUSRIFA\"}, {\"no\": 230, \"no_ujian\": \"HT54172\", \"nama\": \"AURELLITA SYAHIRA ANURDA\"}, {\"no\": 231, \"no_ujian\": \"HT54173\", \"nama\": \"CINTIA ALYA RAMADHANI\"}, {\"no\": 232, \"no_ujian\": \"HT54174\", \"nama\": \"DANISH WIRA HARJUNA\"}, {\"no\": 233, \"no_ujian\": \"HT54175\", \"nama\": \"DWI FATHIN AZ - ZAHRA\"}, {\"no\": 234, \"no_ujian\": \"HT54176\", \"nama\": \"FASIKHA ALZA ATTASQIYA\"}, {\"no\": 235, \"no_ujian\": \"HT54177\", \"nama\": \"GENDHIS RASENDRIA ATHA SUSANTO\"}, {\"no\": 236, \"no_ujian\": \"HT54178\", \"nama\": \"HAURA SALWA AYYASYFA\"}, {\"no\": 237, \"no_ujian\": \"HT54179\", \"nama\": \"IBRAHIM ADHAM IRAWAN\"}, {\"no\": 238, \"no_ujian\": \"HT54181\", \"nama\": \"MAHESWARI KIRANA ARDHANI\"}, {\"no\": 239, \"no_ujian\": \"HT54182\", \"nama\": \"MOHAMAD ALVIAN ADI FADILAH\"}, {\"no\": 240, \"no_ujian\": \"HT54183\", \"nama\": \"MUCHAMAD AMAR ZAIN\"}, {\"no\": 241, \"no_ujian\": \"HT54184\", \"nama\": \"MUHAMMAD  FADIL FEBRIANTO MARUDDIN\"}, {\"no\": 242, \"no_ujian\": \"HT54185\", \"nama\": \"MUHAMMAD AL AQIL RAMADENTA MUSABIH\"}, {\"no\": 243, \"no_ujian\": \"HT54186\", \"nama\": \"MUHAMMAD AZZAM ZAMMI\"}, {\"no\": 244, \"no_ujian\": \"HT54187\", \"nama\": \"MUHAMMAD SATRIA DWI KURNIAWAN\"}, {\"no\": 245, \"no_ujian\": \"HT54188\", \"nama\": \"MUHAMMAD ZADE\"}, {\"no\": 246, \"no_ujian\": \"HT54189\", \"nama\": \"NABILA KHANZA NUR AFIFAH\"}, {\"no\": 247, \"no_ujian\": \"HT54190\", \"nama\": \"OKTAVIAN YUSUF ABRIANSYAH\"}, {\"no\": 248, \"no_ujian\": \"HT54191\", \"nama\": \"PRADIPTA ADITYA\"}, {\"no\": 249, \"no_ujian\": \"HT54192\", \"nama\": \"RAFARDHAN ELVIN MAHADHIKA\"}, {\"no\": 250, \"no_ujian\": \"HT54193\", \"nama\": \"REZKY AKBAR OKTAWIJAYA\"}, {\"no\": 251, \"no_ujian\": \"HT54194\", \"nama\": \"REZKY NAVYANDRA ACHMAD\"}, {\"no\": 252, \"no_ujian\": \"HT54195\", \"nama\": \"REZON ADICANDRA FIRJATULAH\"}, {\"no\": 253, \"no_ujian\": \"HT54196\", \"nama\": \"SASABELA NINDI ADELIA PUTRI\"}, {\"no\": 254, \"no_ujian\": \"HT54197\", \"nama\": \"WAODE MAUREN RIZKI APRILIA PAKRI\"}, {\"no\": 255, \"no_ujian\": \"HT54198\", \"nama\": \"YOGISWARA ADITYA SETIAWAN\"}], \"8D\": [{\"no\": 256, \"no_ujian\": \"HT54199\", \"nama\": \"ABINAYA KHALFANI PUTRA NUGRAHA\"}, {\"no\": 257, \"no_ujian\": \"HT54200\", \"nama\": \"AFIF KHALAF FAITH AL AZIZ\"}, {\"no\": 258, \"no_ujian\": \"HT54201\", \"nama\": \"AKHDAN MAKHRUS RAMADHANI\"}, {\"no\": 259, \"no_ujian\": \"HT54202\", \"nama\": \"AMIRAH HANIN GHAZIYAH MARPAUNG\"}, {\"no\": 260, \"no_ujian\": \"HT54203\", \"nama\": \"ARYA ANDARU\"}, {\"no\": 261, \"no_ujian\": \"HT54204\", \"nama\": \"AS'SYIFA QURRATA A'YYUN\"}, {\"no\": 262, \"no_ujian\": \"HT54205\", \"nama\": \"AYU PUTRI RENGGANIS\"}, {\"no\": 263, \"no_ujian\": \"HT54206\", \"nama\": \"CELLO NAGATA SIVA\"}, {\"no\": 264, \"no_ujian\": \"HT54207\", \"nama\": \"DZAKIRA TALITA AFTANIA IRAWAN\"}, {\"no\": 265, \"no_ujian\": \"HT54208\", \"nama\": \"ENGGAR ALDIANO\"}, {\"no\": 266, \"no_ujian\": \"HT54209\", \"nama\": \"FEBBY KURNIA\"}, {\"no\": 267, \"no_ujian\": \"HT54210\", \"nama\": \"KEEVIN LEEMARCH ADENTORIO RACHMANSYAH\"}, {\"no\": 268, \"no_ujian\": \"HT54211\", \"nama\": \"KIRANA ARDELIA SYAWFITRI\"}, {\"no\": 269, \"no_ujian\": \"HT54212\", \"nama\": \"MAHAFIQHA PUTRI NUGROHO\"}, {\"no\": 270, \"no_ujian\": \"HT54213\", \"nama\": \"MOCH. KENZIE RABBANI DIWANGKARA\"}, {\"no\": 271, \"no_ujian\": \"HT54214\", \"nama\": \"MONIK CANTIQA FARADILLAH\"}, {\"no\": 272, \"no_ujian\": \"HT54215\", \"nama\": \"MUHAMMAD AKBAR AL-FARABY\"}, {\"no\": 273, \"no_ujian\": \"HT54216\", \"nama\": \"MUHAMMAD HAFIZ ARDHA PRIYADI\"}, {\"no\": 274, \"no_ujian\": \"HT54217\", \"nama\": \"MUHAMMAD LIONEL PUTRA\"}, {\"no\": 275, \"no_ujian\": \"HT54218\", \"nama\": \"MUHAMMAD NIZAM EL RUMMI\"}, {\"no\": 276, \"no_ujian\": \"HT54219\", \"nama\": \"MUHAMMAD ZIDAN ALGHIFARI\"}, {\"no\": 277, \"no_ujian\": \"HT54220\", \"nama\": \"MUKHAMMAD NIZAM AL-FARIZI\"}, {\"no\": 278, \"no_ujian\": \"HT54221\", \"nama\": \"NAURA ATALIA AZMI\"}, {\"no\": 279, \"no_ujian\": \"HT54222\", \"nama\": \"NAURA NADHIFA TENTANIA\"}, {\"no\": 280, \"no_ujian\": \"HT54223\", \"nama\": \"RAGIEL PUTRA BAGASKARA\"}, {\"no\": 281, \"no_ujian\": \"HT54224\", \"nama\": \"RAISHA ADHINA PUTRI SAKINAH\"}, {\"no\": 282, \"no_ujian\": \"HT54225\", \"nama\": \"REZQI GHANIYYA TRIANI\"}, {\"no\": 283, \"no_ujian\": \"HT54226\", \"nama\": \"SAFIRA DARIS SALAMAH\"}, {\"no\": 284, \"no_ujian\": \"HT54227\", \"nama\": \"SATRIA YUDHISTIRA\"}, {\"no\": 285, \"no_ujian\": \"HT54228\", \"nama\": \"WISANG AJI BRAMANTYO\"}, {\"no\": 286, \"no_ujian\": \"HT54229\", \"nama\": \"YUDHISTIRA APRILLEO RACHMADI\"}, {\"no\": 287, \"no_ujian\": \"HT54230\", \"nama\": \"ZAHRANI SALSABILLA RAMADHANI\"}], \"8E\": [{\"no\": 288, \"no_ujian\": \"HT54231\", \"nama\": \"ADHIKA VIDYA KAYANA\"}, {\"no\": 289, \"no_ujian\": \"HT54232\", \"nama\": \"ADITIA ANGGA SUGIARTO\"}, {\"no\": 290, \"no_ujian\": \"HT54233\", \"nama\": \"AFINDA SAFA NILAM SARI\"}, {\"no\": 291, \"no_ujian\": \"HT54234\", \"nama\": \"AKHMAD SAHRUL A'SHOBIR ROMADHAN\"}, {\"no\": 292, \"no_ujian\": \"HT54235\", \"nama\": \"ALIF IBRAHIM MACHFUT\"}, {\"no\": 293, \"no_ujian\": \"HT54236\", \"nama\": \"ALIYULLAH RUSYDA AL KASYSYAF\"}, {\"no\": 294, \"no_ujian\": \"HT54237\", \"nama\": \"ANDHIKA DWI RAHMAN DANI\"}, {\"no\": 295, \"no_ujian\": \"HT54238\", \"nama\": \"BRILLIAN AMYRA RACHMA\"}, {\"no\": 296, \"no_ujian\": \"HT54239\", \"nama\": \"CHALYSTA ARIMBI DEWI WIRIANDONO\"}, {\"no\": 297, \"no_ujian\": \"HT54240\", \"nama\": \"DIANDRA NAVAS JOVITA RAMADHANI\"}, {\"no\": 298, \"no_ujian\": \"HT54241\", \"nama\": \"DIKTA AHMAD VIZAKI\"}, {\"no\": 299, \"no_ujian\": \"HT54242\", \"nama\": \"DZAKIROTUL FAIZA QONITA AYU\"}, {\"no\": 300, \"no_ujian\": \"HT54243\", \"nama\": \"GHINA AUFA SAFIRA\"}, {\"no\": 301, \"no_ujian\": \"HT54244\", \"nama\": \"I KADEK TYNO UKTO WARDANA\"}, {\"no\": 302, \"no_ujian\": \"HT54245\", \"nama\": \"JAYENDRA DEWI ANGELIA\"}, {\"no\": 303, \"no_ujian\": \"HT54246\", \"nama\": \"LAREINA DHIA TIHANY\"}, {\"no\": 304, \"no_ujian\": \"HT54247\", \"nama\": \"LETISHA NAVEEN ANGGORO\"}, {\"no\": 305, \"no_ujian\": \"HT54248\", \"nama\": \"MIKHAEL BAYUSETO HADI\"}, {\"no\": 306, \"no_ujian\": \"HT54249\", \"nama\": \"MOCH. BHIMAS FAIZ AL-BUCHORI\"}, {\"no\": 307, \"no_ujian\": \"HT54250\", \"nama\": \"MUHAMMAD ANTONIO IRSYAD MA'ARIF\"}, {\"no\": 308, \"no_ujian\": \"HT54252\", \"nama\": \"MUHAMMAD ZIDANE ATAZHAR\"}, {\"no\": 309, \"no_ujian\": \"HT54253\", \"nama\": \"NARENDRA AILISYACH AL SHAFY MUHAMMAD\"}, {\"no\": 310, \"no_ujian\": \"HT54254\", \"nama\": \"NI KOMANG SEKAR AYU GAYATRI\"}, {\"no\": 311, \"no_ujian\": \"HT54255\", \"nama\": \"RADITYA ADRIAN MAHARDIKA\"}, {\"no\": 312, \"no_ujian\": \"HT54256\", \"nama\": \"SHAFA FAUZIAH BUDIANTO\"}, {\"no\": 313, \"no_ujian\": \"HT54257\", \"nama\": \"SHAFIRA RAMADHANIA SISWONO\"}, {\"no\": 314, \"no_ujian\": \"HT54258\", \"nama\": \"VANIA ELYSIA CAROLIENA\"}, {\"no\": 315, \"no_ujian\": \"HT54259\", \"nama\": \"VINCENT RAYA EURELIO WIRAWAN\"}, {\"no\": 316, \"no_ujian\": \"HT54260\", \"nama\": \"YOHAN CHRISTIAN OTNIEL\"}, {\"no\": 317, \"no_ujian\": \"HT54261\", \"nama\": \"ZAHWA AISYAH AFIQAH\"}, {\"no\": 318, \"no_ujian\": \"HT54262\", \"nama\": \"ZILDJIAN YUSUF AL-MUZAKI\"}], \"9A\": [{\"no\": 319, \"no_ujian\": \"HT53940\", \"nama\": \"A NAQULA VINZA BAGOES DEWANATA\"}, {\"no\": 320, \"no_ujian\": \"HT53941\", \"nama\": \"ADHYASTHA RIZQIE PRASETYA\"}, {\"no\": 321, \"no_ujian\": \"HT53942\", \"nama\": \"AISYAH KANAYA FARHANI\"}, {\"no\": 322, \"no_ujian\": \"HT53943\", \"nama\": \"ALTHAF ARDIANSYAH\"}, {\"no\": 323, \"no_ujian\": \"HT53945\", \"nama\": \"ANDREA VICKY GIOVANNY\"}, {\"no\": 324, \"no_ujian\": \"HT53946\", \"nama\": \"ANGELINA JULY HENDARTO\"}, {\"no\": 325, \"no_ujian\": \"HT53947\", \"nama\": \"BILQIS KEANA RENGGANIS\"}, {\"no\": 326, \"no_ujian\": \"HT53949\", \"nama\": \"CLARISSA PUTRI GRACIA\"}, {\"no\": 327, \"no_ujian\": \"HT53950\", \"nama\": \"DANIEL PUTRA MAIRISSA\"}, {\"no\": 328, \"no_ujian\": \"HT53951\", \"nama\": \"DIVANIA RAHMA MAULIDYA\"}, {\"no\": 329, \"no_ujian\": \"HT53953\", \"nama\": \"GUINEVERE ZEFANYA ELIAZAR\"}, {\"no\": 330, \"no_ujian\": \"HT53954\", \"nama\": \"HOSEA BAGAS ARTAKU NAPITUPULU\"}, {\"no\": 331, \"no_ujian\": \"HT53955\", \"nama\": \"JESSIE SEVA PRATIWI\"}, {\"no\": 332, \"no_ujian\": \"HT53956\", \"nama\": \"JORELLYN OLIVEA HARTONO\"}, {\"no\": 333, \"no_ujian\": \"HT53958\", \"nama\": \"MICHAELA CANTIKA ARDIANTA\"}, {\"no\": 334, \"no_ujian\": \"HT53959\", \"nama\": \"MOH. YUSRIL AFANDI\"}, {\"no\": 335, \"no_ujian\": \"HT53960\", \"nama\": \"MOHAMAD HILBRAM ALBARIQ\"}, {\"no\": 336, \"no_ujian\": \"HT53961\", \"nama\": \"MOHAMMAD HAFLAH AL AZHAR\"}, {\"no\": 337, \"no_ujian\": \"HT53962\", \"nama\": \"MONICA MODESTY PUTRI\"}, {\"no\": 338, \"no_ujian\": \"HT53963\", \"nama\": \"MUHAMMAD ADHYASTA EVAN TSAQIF\"}, {\"no\": 339, \"no_ujian\": \"HT53964\", \"nama\": \"MUHAMMAD IQBAL MUZAKKI\"}, {\"no\": 340, \"no_ujian\": \"HT53965\", \"nama\": \"NUGIE KRISTIAN ANDRIANTO\"}, {\"no\": 341, \"no_ujian\": \"HT53966\", \"nama\": \"PUTRI ZABRILLIAN CHOLIND\"}, {\"no\": 342, \"no_ujian\": \"HT53967\", \"nama\": \"RANGGA ADITYA\"}, {\"no\": 343, \"no_ujian\": \"HT53968\", \"nama\": \"VERENA DWI FEBRIYANTI BAMUNG\"}, {\"no\": 344, \"no_ujian\": \"HT53969\", \"nama\": \"WIMA ARSYA RAHMAN\"}, {\"no\": 345, \"no_ujian\": \"HT53970\", \"nama\": \"YEMIMA EZRI PUTRI AYU\"}, {\"no\": 346, \"no_ujian\": \"HT54101\", \"nama\": \"FIONA ALTHAF AZZAHRA\"}, {\"no\": 347, \"no_ujian\": \"HT54263\", \"nama\": \"VIONA NADA SALSABELA\"}, {\"no\": 348, \"no_ujian\": \"HT54426\", \"nama\": \"NAGA EL FATIR WIJAYA\"}], \"9B\": [{\"no\": 349, \"no_ujian\": \"HT53971\", \"nama\": \"ABID DANA RADITYA\"}, {\"no\": 350, \"no_ujian\": \"HT53972\", \"nama\": \"AFICHA DAMAR SHAFIRA\"}, {\"no\": 351, \"no_ujian\": \"HT53973\", \"nama\": \"AGUNG ARYA SHAFIYURRAHMAN\"}, {\"no\": 352, \"no_ujian\": \"HT53974\", \"nama\": \"AHMAD HAFIZH SURYA ALAM\"}, {\"no\": 353, \"no_ujian\": \"HT53975\", \"nama\": \"AHMAD WAHYU DANADYAKSA\"}, {\"no\": 354, \"no_ujian\": \"HT53976\", \"nama\": \"AISSY HAFIY IVANDER SOSMUAWAN\"}, {\"no\": 355, \"no_ujian\": \"HT53977\", \"nama\": \"AKHMAD AINUR NIZAM\"}, {\"no\": 356, \"no_ujian\": \"HT53978\", \"nama\": \"ANANG ARDIANSYAH\"}, {\"no\": 357, \"no_ujian\": \"HT53979\", \"nama\": \"ARIQA ASYRANI RAHIMA\"}, {\"no\": 358, \"no_ujian\": \"HT53980\", \"nama\": \"BISMA LUCKY PRATAMA\"}, {\"no\": 359, \"no_ujian\": \"HT53981\", \"nama\": \"BRYANT PRANAJA PURNOMO\"}, {\"no\": 360, \"no_ujian\": \"HT53982\", \"nama\": \"CHARRIZA YULIANI PUTRI SUBIJANTO\"}, {\"no\": 361, \"no_ujian\": \"HT53983\", \"nama\": \"DEWI RAHMAWATI\"}, {\"no\": 362, \"no_ujian\": \"HT53984\", \"nama\": \"DZALFA AQILLAH SANJAYA\"}, {\"no\": 363, \"no_ujian\": \"HT53985\", \"nama\": \"EFRANDA APRILIA SANANGKA\"}, {\"no\": 364, \"no_ujian\": \"HT53987\", \"nama\": \"HUSSEIN KHALID BAHREISY\"}, {\"no\": 365, \"no_ujian\": \"HT53988\", \"nama\": \"MEYSHA NAURA RAYANI FAUZI\"}, {\"no\": 366, \"no_ujian\": \"HT53989\", \"nama\": \"MOCH. RAFFA HANDIKA PRATAMA\"}, {\"no\": 367, \"no_ujian\": \"HT53990\", \"nama\": \"MOCHAMMAD RICO FERDINAND ZA FAUZI\"}, {\"no\": 368, \"no_ujian\": \"HT53991\", \"nama\": \"MOCHAMMAD RIZKY DARMAWAN\"}, {\"no\": 369, \"no_ujian\": \"HT53992\", \"nama\": \"MUHAMMAD ALIF MUBARROK\"}, {\"no\": 370, \"no_ujian\": \"HT53993\", \"nama\": \"MUHAMMAD AZIZAN RABBANI EDWARD\"}, {\"no\": 371, \"no_ujian\": \"HT53994\", \"nama\": \"MUHAMMAD RASYA KALANDRA\"}, {\"no\": 372, \"no_ujian\": \"HT53995\", \"nama\": \"NARMADHA FERANI PUTRI KURNIAWAN\"}, {\"no\": 373, \"no_ujian\": \"HT53996\", \"nama\": \"RAEYHAN ATMAJA MULYA\"}, {\"no\": 374, \"no_ujian\": \"HT53997\", \"nama\": \"RAFAN ARMANDA\"}, {\"no\": 375, \"no_ujian\": \"HT53998\", \"nama\": \"RAUZAN FIKRI PRADHITYA\"}, {\"no\": 376, \"no_ujian\": \"HT53999\", \"nama\": \"RIDWAN DAIVAN ISTAZ ADI\"}, {\"no\": 377, \"no_ujian\": \"HT54000\", \"nama\": \"SHAFA ANINDYA ISHARI\"}, {\"no\": 378, \"no_ujian\": \"HT54001\", \"nama\": \"SYAKIRA GHINA PRASETYANINGRUM\"}, {\"no\": 379, \"no_ujian\": \"HT54002\", \"nama\": \"VERA ASYIFA NADIANI\"}], \"9C\": [{\"no\": 380, \"no_ujian\": \"HT54003\", \"nama\": \"ADELARD DAMA SYAHPUTRA\"}, {\"no\": 381, \"no_ujian\": \"HT54004\", \"nama\": \"AHMAD ARYA ALFALAQ\"}, {\"no\": 382, \"no_ujian\": \"HT54005\", \"nama\": \"ALFIANO ARDHYNATA KUSUMA\"}, {\"no\": 383, \"no_ujian\": \"HT54006\", \"nama\": \"AUDREY RAMADHIAN\"}, {\"no\": 384, \"no_ujian\": \"HT54007\", \"nama\": \"BIMA PUTRA PRATAMA\"}, {\"no\": 385, \"no_ujian\": \"HT54008\", \"nama\": \"BINTANG PUTRA PRADITYA\"}, {\"no\": 386, \"no_ujian\": \"HT54009\", \"nama\": \"DANISWARA HARYO ATMOJO\"}, {\"no\": 387, \"no_ujian\": \"HT54010\", \"nama\": \"DEVINA PUTRI AZZAHRA\"}, {\"no\": 388, \"no_ujian\": \"HT54011\", \"nama\": \"DHANI AHMAD PRASETYO\"}, {\"no\": 389, \"no_ujian\": \"HT54012\", \"nama\": \"EL JABBAR SACHIIO FAYYADH SATRIYA\"}, {\"no\": 390, \"no_ujian\": \"HT54013\", \"nama\": \"ELFRIDA MARSHA CAMILIA\"}, {\"no\": 391, \"no_ujian\": \"HT54014\", \"nama\": \"ERLINDA APRILIA\"}, {\"no\": 392, \"no_ujian\": \"HT54015\", \"nama\": \"GALANG BAGUS RADJAKA MAULANA\"}, {\"no\": 393, \"no_ujian\": \"HT54016\", \"nama\": \"GALY AHMAD HABIBULLAH\"}, {\"no\": 394, \"no_ujian\": \"HT54017\", \"nama\": \"HAFIDZ AFLAH SUGIARTO\"}, {\"no\": 395, \"no_ujian\": \"HT54018\", \"nama\": \"ICHA AYUMI FEBRIANTY\"}, {\"no\": 396, \"no_ujian\": \"HT54019\", \"nama\": \"JEVON PUTRA RIZQULLAH\"}, {\"no\": 397, \"no_ujian\": \"HT54020\", \"nama\": \"KEYSHA AZZARHA PUTRI VERAWATI\"}, {\"no\": 398, \"no_ujian\": \"HT54021\", \"nama\": \"M. RAYSSA ALVARO ARDHANI\"}, {\"no\": 399, \"no_ujian\": \"HT54023\", \"nama\": \"MAULA YUSUF IBRAHIM\"}, {\"no\": 400, \"no_ujian\": \"HT54024\", \"nama\": \"MEGA TIARA CEMPAKA SARI\"}, {\"no\": 401, \"no_ujian\": \"HT54025\", \"nama\": \"MUHAMAD RIZKY OCTAVIAN\"}, {\"no\": 402, \"no_ujian\": \"HT54026\", \"nama\": \"MUHAMMAD BAHARUDDIN YUSUF\"}, {\"no\": 403, \"no_ujian\": \"HT54027\", \"nama\": \"MUHAMMAD RAMDHAN ADZIKRI KOESARVIAN\"}, {\"no\": 404, \"no_ujian\": \"HT54028\", \"nama\": \"NADIRA AZZAHRA RAHMATILLAH\"}, {\"no\": 405, \"no_ujian\": \"HT54029\", \"nama\": \"REVALINA NAILA HAFIZZAH\"}, {\"no\": 406, \"no_ujian\": \"HT54030\", \"nama\": \"RICKO ARVA CAHYO SAPUTRA\"}, {\"no\": 407, \"no_ujian\": \"HT54031\", \"nama\": \"RIVQY ARYA GUNAWAN\"}, {\"no\": 408, \"no_ujian\": \"HT54032\", \"nama\": \"TABINA PUTRI DANIELLA\"}, {\"no\": 409, \"no_ujian\": \"HT54033\", \"nama\": \"TATA QOLBU CHI RIANTI\"}, {\"no\": 410, \"no_ujian\": \"HT54034\", \"nama\": \"VANIA CANTIKA SABELA\"}], \"9D\": [{\"no\": 411, \"no_ujian\": \"HT54035\", \"nama\": \"ACHMAD REIHAN ABDILLAH\"}, {\"no\": 412, \"no_ujian\": \"HT54036\", \"nama\": \"AL FATHIR MAULANA SYAFIQ ARJASA\"}, {\"no\": 413, \"no_ujian\": \"HT54037\", \"nama\": \"ALEESYA ADINDA DEARYUSDI\"}, {\"no\": 414, \"no_ujian\": \"HT54038\", \"nama\": \"ANGELIKA FEBRIANA KURNIAWAN\"}, {\"no\": 415, \"no_ujian\": \"HT54039\", \"nama\": \"ARROYYAN RIZKY NUGROHO JATI\"}, {\"no\": 416, \"no_ujian\": \"HT54040\", \"nama\": \"AURA NAIFISHA PRASETIO\"}, {\"no\": 417, \"no_ujian\": \"HT54041\", \"nama\": \"CALISTA ECYA FAZAHRA\"}, {\"no\": 418, \"no_ujian\": \"HT54042\", \"nama\": \"CARISSA ANASTASYA ARDHIANI\"}, {\"no\": 419, \"no_ujian\": \"HT54043\", \"nama\": \"CELLO HAFIZ ADITYA MAULANA\"}, {\"no\": 420, \"no_ujian\": \"HT54044\", \"nama\": \"CHARINNA GAYATRI DEWI WIRIANDONO\"}, {\"no\": 421, \"no_ujian\": \"HT54045\", \"nama\": \"FARA RAYA NABILA\"}, {\"no\": 422, \"no_ujian\": \"HT54046\", \"nama\": \"GOWARDHANA KAGANGA PUTRANDYA NAYOTAMA\"}, {\"no\": 423, \"no_ujian\": \"HT54047\", \"nama\": \"M. IBRA FABIAN AL-QILBY\"}, {\"no\": 424, \"no_ujian\": \"HT54048\", \"nama\": \"MAHER SYAHLAL HASBASH NOEL PUTRA BANI\"}, {\"no\": 425, \"no_ujian\": \"HT54049\", \"nama\": \"MOCH. ARKADYNATA NALENDRA\"}, {\"no\": 426, \"no_ujian\": \"HT54050\", \"nama\": \"MOCHAMMAD AFIQ ZIDAN AL-ARIEF\"}, {\"no\": 427, \"no_ujian\": \"HT54051\", \"nama\": \"MOCHAMMAD NOVAL AINUL RIZKY\"}, {\"no\": 428, \"no_ujian\": \"HT54052\", \"nama\": \"MOH. ALI\"}, {\"no\": 429, \"no_ujian\": \"HT54053\", \"nama\": \"MUHAMMAD FATHIR IBRAHIMOVIK\"}, {\"no\": 430, \"no_ujian\": \"HT54054\", \"nama\": \"MUHAMMAD QIYAN ILHAM\"}, {\"no\": 431, \"no_ujian\": \"HT54055\", \"nama\": \"MUHAMMAD ZAKY ARIEZHUL UMAM\"}, {\"no\": 432, \"no_ujian\": \"HT54056\", \"nama\": \"NABILA PUTRI NUR ALIFA\"}, {\"no\": 433, \"no_ujian\": \"HT54057\", \"nama\": \"NABILLA AZKIYA ANNAJWA SALIM\"}, {\"no\": 434, \"no_ujian\": \"HT54058\", \"nama\": \"NADHIIRAH MELATI SISTRI ANSYAH\"}, {\"no\": 435, \"no_ujian\": \"HT54059\", \"nama\": \"NANDYA FIRLY FALISHA MAHARANI\"}, {\"no\": 436, \"no_ujian\": \"HT54060\", \"nama\": \"NAURA ATHA VIYANI\"}, {\"no\": 437, \"no_ujian\": \"HT54061\", \"nama\": \"RADITYA SYAWALI AKBAR WIRANATA\"}, {\"no\": 438, \"no_ujian\": \"HT54062\", \"nama\": \"SASMITO BUDI WICAKSONO\"}, {\"no\": 439, \"no_ujian\": \"HT54063\", \"nama\": \"SIFA'UL AULIA\"}, {\"no\": 440, \"no_ujian\": \"HT54064\", \"nama\": \"SYIFA JIHAN AQILA ADWA\"}, {\"no\": 441, \"no_ujian\": \"HT54065\", \"nama\": \"TETUKO RANU ANUGRAHING GUSTI\"}, {\"no\": 442, \"no_ujian\": \"HT54066\", \"nama\": \"YASER RAFA ATMAJAYA\"}], \"9E\": [{\"no\": 443, \"no_ujian\": \"HT54067\", \"nama\": \"ACHMAD FADHIL ARVIANSYAH\"}, {\"no\": 444, \"no_ujian\": \"HT54068\", \"nama\": \"ADELIO LEONEL MESSI\"}, {\"no\": 445, \"no_ujian\": \"HT54069\", \"nama\": \"ARCHELLIA ARINDA SISWOYO\"}, {\"no\": 446, \"no_ujian\": \"HT54070\", \"nama\": \"ASMAUL KHUSNA\"}, {\"no\": 447, \"no_ujian\": \"HT54071\", \"nama\": \"AZRIL ADITIAN SAPUTRA\"}, {\"no\": 448, \"no_ujian\": \"HT54072\", \"nama\": \"CLARA SURYA AGUSTINA\"}, {\"no\": 449, \"no_ujian\": \"HT54073\", \"nama\": \"GALIH PRADITYA KARDONO PUTRA\"}, {\"no\": 450, \"no_ujian\": \"HT54074\", \"nama\": \"JANITRA ADELIA PRASETYO\"}, {\"no\": 451, \"no_ujian\": \"HT54075\", \"nama\": \"KARIN AULIA PUTRI\"}, {\"no\": 452, \"no_ujian\": \"HT54076\", \"nama\": \"KEISHA AZZAHRA\"}, {\"no\": 453, \"no_ujian\": \"HT54077\", \"nama\": \"KHANZA JASMINE SUMARTONO\"}, {\"no\": 454, \"no_ujian\": \"HT54078\", \"nama\": \"LYDEA SYAKILA\"}, {\"no\": 455, \"no_ujian\": \"HT54079\", \"nama\": \"MIYAKE NAMORA NAULY\"}, {\"no\": 456, \"no_ujian\": \"HT54080\", \"nama\": \"MOCH. RAFAEL ADITIYA PRATAMA\"}, {\"no\": 457, \"no_ujian\": \"HT54081\", \"nama\": \"MUHAMAD HARIS DWI SUSANTO\"}, {\"no\": 458, \"no_ujian\": \"HT54082\", \"nama\": \"MUHAMMAD MEMOR DIMAS WONDA\"}, {\"no\": 459, \"no_ujian\": \"HT54083\", \"nama\": \"MUHAMMAD NASAR RILASTAKA\"}, {\"no\": 460, \"no_ujian\": \"HT54084\", \"nama\": \"MUHAMMAD RIFA'I AZMI\"}, {\"no\": 461, \"no_ujian\": \"HT54085\", \"nama\": \"MUHAMMAD YARDAN RAHMADDANI\"}, {\"no\": 462, \"no_ujian\": \"HT54086\", \"nama\": \"NAIRA REZTANIA PUTRI\"}, {\"no\": 463, \"no_ujian\": \"HT54087\", \"nama\": \"NATHA VIDYA AVARA\"}, {\"no\": 464, \"no_ujian\": \"HT54088\", \"nama\": \"NAZUWA CITRA CHABZANI\"}, {\"no\": 465, \"no_ujian\": \"HT54090\", \"nama\": \"PRADITYA EVANDRA ASSIDIQI\"}, {\"no\": 466, \"no_ujian\": \"HT54091\", \"nama\": \"RAFIF ATHALLAH PUTRA\"}, {\"no\": 467, \"no_ujian\": \"HT54092\", \"nama\": \"RAKHA KURNIANTONO\"}, {\"no\": 468, \"no_ujian\": \"HT54093\", \"nama\": \"REYHAN BAGAS SAPUTRA\"}, {\"no\": 469, \"no_ujian\": \"HT54095\", \"nama\": \"RIZKY RAHMAT FAUZA\"}, {\"no\": 470, \"no_ujian\": \"HT54096\", \"nama\": \"RIZQY AINUR ROFIQ\"}, {\"no\": 471, \"no_ujian\": \"HT54097\", \"nama\": \"ZAHRA SACHI KAYANA ANGGRAENI\"}, {\"no\": 472, \"no_ujian\": \"HT54098\", \"nama\": \"ZALSABILLA RISACH GIRINDRA\"}]};\n\nconst allData = $input.all().map(item => item.json);\n\n// 1. Mapping nilai dari CBT: (kelas + \"___\" + mapel + \"___\" + no_ujian) -> nilai\nconst scoreMap = {};\nconst subjectsPerClass = {}; // kelas -> Set mapel\n\nfor (const row of allData) {\n    const k = row.kelas || \"Tanpa_Kelas\";\n    const m = row.mata_pelajaran || \"Tanpa_Mapel\";\n    const nu = row.no_ujian || \"\";\n    \n    scoreMap[k + \"___\" + m + \"___\" + nu] = (row.nilai !== undefined) ? row.nilai : \"\";\n    \n    if (!subjectsPerClass[k]) {\n        subjectsPerClass[k] = new Set();\n    }\n    subjectsPerClass[k].add(m);\n}\n\n// 2. Generate CSV per kelas dan per mapel berdasarkan MASTER ROSTER\nconst output = [];\n\nfor (const kelas of Object.keys(subjectsPerClass).sort()) {\n    const roster = MASTER_ROSTER[kelas] || [];\n    const subjects = Array.from(subjectsPerClass[kelas]).sort();\n    \n    for (const mapel of subjects) {\n        let csvRows = [\n            `\"${kelas} - ${mapel}\"`,\n            \"no,no_ujian,nama,nilai\"\n        ];\n        \n        roster.forEach((s, idx) => {\n            const key = kelas + \"___\" + mapel + \"___\" + s.no_ujian;\n            const nilai = (scoreMap[key] !== undefined) ? scoreMap[key] : \"\";\n            \n            const cleanNama = (s.nama || \"\").replace(/\"/g, '\"\"');\n            const escapedNama = cleanNama.includes(\",\") ? `\"${cleanNama}\"` : cleanNama;\n            \n            csvRows.push([\n                idx + 1,\n                s.no_ujian,\n                escapedNama,\n                nilai\n            ].join(\",\"));\n        });\n        \n        const cleanMapelFilename = mapel.replace(/[\\\\/:*?\"<>| ]/g, \"_\");\n        const fileName = `rekap_${kelas}_${cleanMapelFilename}.csv`;\n        \n        output.push({\n            json: {\n                kelas: kelas,\n                mata_pelajaran: mapel,\n                total_siswa: roster.length,\n                fileName: fileName,\n                csv: csvRows.join(\"\\r\\n\")\n            }\n        });\n    }\n}\n\nreturn output;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1328,
+          160
+        ],
+        "id": "c198a284-5f12-4011-9e28-1b2039401f99",
+        "name": "Group CSV per Kelas & Mapel"
+      },
+      {
+        "parameters": {
+          "operation": "toText",
+          "sourceProperty": "csv",
+          "binaryPropertyName": "data",
+          "options": {
+            "fileName": "={{ $json.fileName }}",
+            "addBOM": true
+          }
+        },
+        "type": "n8n-nodes-base.convertToFile",
+        "typeVersion": 1.1,
+        "position": [
+          1550,
+          160
+        ],
+        "id": "e9389274-5c91-4999-9ea2-e2518e388d12",
+        "name": "Generate CSV Files"
+      }
+    ],
+    "connections": {
+      "When clicking \u2018Execute workflow\u2019": {
+        "main": [
+          [
+            {
+              "node": "login ",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "login ": {
+        "main": [
+          [
+            {
+              "node": "GET Jadwal Aktif",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "GET Jadwal Aktif": {
+        "main": [
+          [
+            {
+              "node": "Ekstrak Daftar Kelas",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Ekstrak Daftar Kelas": {
+        "main": [
+          [
+            {
+              "node": "GET Hasil Ujian Siswa",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "GET Hasil Ujian Siswa": {
+        "main": [
+          [
+            {
+              "node": "Format Data (+Kelas)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Data (+Kelas)": {
+        "main": [
+          [
+            {
+              "node": "Generate HTML Tabel",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Group CSV per Kelas & Mapel",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook Trigger": {
+        "main": [
+          [
+            {
+              "node": "login ",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate CSV Files": {
+        "main": [
+          []
+        ]
+      },
+      "Group CSV per Kelas & Mapel": {
+        "main": [
+          [
+            {
+              "node": "Generate CSV Files",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": []
+  },
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  },
+  "parentFolderId": null,
+  "scopes": [
+    "execution:reveal",
+    "workflow:create",
+    "workflow:delete",
+    "workflow:disableRedaction",
+    "workflow:enableRedaction",
+    "workflow:execute",
+    "workflow:execute-chat",
+    "workflow:export",
+    "workflow:import",
+    "workflow:list",
+    "workflow:move",
+    "workflow:publish",
+    "workflow:read",
+    "workflow:share",
+    "workflow:unpublish",
+    "workflow:unshare",
+    "workflow:update"
+  ],
+  "canExecute": true
+}

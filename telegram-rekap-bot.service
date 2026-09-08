@@ -1,0 +1,13 @@
+[Unit]
+Description=Telegram Rekap Bot CBT SMP Hang Tuah 5
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/encex12/n8n-rekap_nilai_extraodinary_cbt
+ExecStart=/usr/bin/python3 /home/encex12/n8n-rekap_nilai_extraodinary_cbt/telegram_rekap_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
