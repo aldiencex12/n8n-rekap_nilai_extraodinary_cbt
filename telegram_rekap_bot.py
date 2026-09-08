@@ -30,7 +30,6 @@ CBT_PASSWORD = os.environ.get("CBT_PASSWORD", "criticalpassword")
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/rekap-nilai")
 N8N_API_KEY = os.environ.get("N8N_API_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ZGVhMGNhOS0xNWEyLTQwYzMtYWQ0OC0yOTBlOTBhNDA3ZmMiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiOTk0OTUzNTAtMjI3Mi00MGI1LTlkMzktMzNlNmE2NjA2MWExIiwiaWF0IjoxNzg4Nzk2ODIzfQ.rutODfAQn3CHiaaig_mN_8uT0m6UxW9rzBs8zYv909w")
 PDF_DIR = os.path.join(BASE_DIR, "rekap_pdf")
-CSV_DIR = os.path.join(BASE_DIR, "rekap_per_kelas_mapel")
 
 def get_cbt_token():
     data = json.dumps({"email": CBT_EMAIL, "password": CBT_PASSWORD}).encode()

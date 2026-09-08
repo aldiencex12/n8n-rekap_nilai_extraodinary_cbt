@@ -2,6 +2,9 @@ node_modules/
 __pycache__/
 *.pyc
 *.zip
+*.csv
 rekap_pdf/
+rekap_per_kelas/
+rekap_per_kelas_mapel/
 .system_generated/
 .env
