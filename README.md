@@ -4,6 +4,28 @@ Bot Telegram otomasi untuk memantau ujian, force-finish siswa yang belum submit,
 
 ---
 
+## 📑 Contoh Output Laporan PDF
+
+Bot Telegram ini menghasilkan laporan berformat PDF resmi siap cetak (A4 Portrait) dengan kop surat sekolah, tabel nilai presisi, penandaan siswa belum ujian, serta kolom tanda tangan guru/panitia.
+
+### 1. Laporan Rekapitulasi Nilai Asesmen CBT (Per Kelas & Mapel)
+Dihasilkan melalui perintah `/rekap` atau `/pdf [KELAS]`. Menampilkan daftar seluruh siswa dalam rombel, nilai ujian CBT, kriteria KKM, serta penandaan jelas siswa yang belum ujian (*strip merah*).
+
+<p align="center">
+  <img src="docs/preview_rekap_nilai.png" width="85%" alt="Preview Rekap Nilai PDF">
+</p>
+
+---
+
+### 2. Laporan Daftar Siswa Ujian Susulan
+Dihasilkan melalui perintah `/susulan` atau tombol **📋 Cek Susulan**. Otomatis mengidentifikasi siswa yang belum terekam nilainya di server CBT pada sesi ujian aktif hari itu, siap dicetak untuk daftar hadir ruang susulan.
+
+<p align="center">
+  <img src="docs/preview_rekap_susulan.png" width="85%" alt="Preview Rekap Susulan PDF">
+</p>
+
+---
+
 ## ⚡ Instalasi Cepat (1 Langkah)
 
 Untuk memasang bot di server baru atau laptop proktor (Linux Ubuntu / Debian):
@@ -57,19 +79,26 @@ systemctl --user restart telegram-rekap-bot.service
 
 - **Cek Status Bot:**
   ```bash
+  # Di Server (root):
+  systemctl status telegram-rekap-bot.service
+
+  # Di Laptop/Desktop (user biasa):
   systemctl --user status telegram-rekap-bot.service
   ```
 - **Restart Bot:**
   ```bash
-  systemctl --user restart telegram-rekap-bot.service
+  systemctl restart telegram-rekap-bot.service         # Server
+  systemctl --user restart telegram-rekap-bot.service  # Desktop
   ```
 - **Stop Bot:**
   ```bash
-  systemctl --user stop telegram-rekap-bot.service
+  systemctl stop telegram-rekap-bot.service            # Server
+  systemctl --user stop telegram-rekap-bot.service     # Desktop
   ```
 - **Melihat Live Log:**
   ```bash
-  journalctl --user -u telegram-rekap-bot.service -f
+  journalctl -u telegram-rekap-bot.service -f          # Server
+  journalctl --user -u telegram-rekap-bot.service -f   # Desktop
   ```
 
 ---
