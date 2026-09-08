@@ -24,8 +24,8 @@ load_env()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
-CBT_URL = os.environ.get("CBT_URL", "https://assesment.cbt-smpht5.my.id").rstrip("/")
-CBT_EMAIL = os.environ.get("CBT_EMAIL", "admin@shellrean.id").strip()
+CBT_URL = os.environ.get("CBT_URL", "").rstrip("/")
+CBT_EMAIL = os.environ.get("CBT_EMAIL", "").strip()
 CBT_PASSWORD = os.environ.get("CBT_PASSWORD", "").strip()
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/rekap-nilai")
 N8N_API_KEY = os.environ.get("N8N_API_KEY", "")
@@ -33,6 +33,10 @@ PDF_DIR = os.path.join(BASE_DIR, "rekap_pdf")
 
 if not BOT_TOKEN:
     print("❌ PERINGATAN: TELEGRAM_BOT_TOKEN belum diisi di file .env!")
+if not CBT_URL:
+    print("❌ PERINGATAN: CBT_URL belum diisi di file .env!")
+if not CBT_EMAIL:
+    print("❌ PERINGATAN: CBT_EMAIL belum diisi di file .env!")
 if not CBT_PASSWORD:
     print("❌ PERINGATAN: CBT_PASSWORD belum diisi di file .env!")
 

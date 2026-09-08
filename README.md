@@ -39,10 +39,10 @@ Isi file `.env`:
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 
 # 2. URL Website CBT (tanpa tanda garis miring / di ujung)
-CBT_URL=https://assesment.cbt-smpht5.my.id
+CBT_URL=https://cbt.sekolahanda.sch.id
 
 # 3. Akun Login Admin CBT
-CBT_EMAIL=admin@shellrean.id
+CBT_EMAIL=admin_cbt@sekolah.sch.id
 CBT_PASSWORD=your_password_here
 ```
 

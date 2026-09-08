@@ -128,17 +128,17 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://assesment.cbt-smpht5.my.id/api/v1/token/generate",
+        "url": "https://cbt-sekolah.sch.id/api/v1/token/generate",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
               "name": "email",
-              "value": "admin@shellrean.id"
+              "value": "admin@cbt-sekolah.sch.id"
             },
             {
               "name": "password",
-              "value": "criticalpassword"
+              "value": "PASSWORD_ADMIN_CBT"
             }
           ]
         },
@@ -155,7 +155,7 @@
     },
     {
       "parameters": {
-        "url": "=https://assesment.cbt-smpht5.my.id/api/v1/jadwals",
+        "url": "=https://cbt-sekolah.sch.id/api/v1/jadwals",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
@@ -204,7 +204,7 @@
     },
     {
       "parameters": {
-        "url": "https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians",
+        "url": "https://cbt-sekolah.sch.id/api/v1/hasil-ujians",
         "sendQuery": true,
         "specifyQuery": "=keypair",
         "queryParameters": {
@@ -350,17 +350,17 @@
       {
         "parameters": {
           "method": "POST",
-          "url": "https://assesment.cbt-smpht5.my.id/api/v1/token/generate",
+          "url": "https://cbt-sekolah.sch.id/api/v1/token/generate",
           "sendBody": true,
           "bodyParameters": {
             "parameters": [
               {
                 "name": "email",
-                "value": "admin@shellrean.id"
+                "value": "admin@cbt-sekolah.sch.id"
               },
               {
                 "name": "password",
-                "value": "criticalpassword"
+                "value": "PASSWORD_ADMIN_CBT"
               }
             ]
           },
@@ -377,7 +377,7 @@
       },
       {
         "parameters": {
-          "url": "=https://assesment.cbt-smpht5.my.id/api/v1/jadwals",
+          "url": "=https://cbt-sekolah.sch.id/api/v1/jadwals",
           "sendQuery": true,
           "queryParameters": {
             "parameters": [
@@ -426,7 +426,7 @@
       },
       {
         "parameters": {
-          "url": "https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians",
+          "url": "https://cbt-sekolah.sch.id/api/v1/hasil-ujians",
           "sendQuery": true,
           "specifyQuery": "=keypair",
           "queryParameters": {
