@@ -37,6 +37,106 @@ def get_cbt_token():
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read().decode())["data"]["token"]
 
+_roster_cache = {
+    "data": None,
+    "timestamp": 0
+}
+
+def get_master_roster(token=None, force_refresh=False):
+    """Mengambil daftar siswa per grup/kelas langsung dari API CBT dengan fallback ke file lokal."""
+    global _roster_cache
+    now = time.time()
+    if not force_refresh and _roster_cache["data"] and (now - _roster_cache["timestamp"] < 300):
+        return _roster_cache["data"]
+
+    # 1. Coba ambil langsung dari CBT API (Groups & Group-Members)
+    try:
+        if not token:
+            token = get_cbt_token()
+        
+        req_g = urllib.request.Request(f"{CBT_URL}/api/v1/groups", headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req_g, timeout=10) as resp:
+            res_g = json.loads(resp.read().decode())
+            
+        groups = []
+        for g_parent in res_g.get("data", []):
+            if "child" in g_parent and isinstance(g_parent["child"], list):
+                groups.extend(g_parent["child"])
+            else:
+                groups.append(g_parent)
+                
+        roster = {}
+        for g in groups:
+            gid = g.get("id")
+            k = g.get("name", "").replace("lt-", "").upper().strip()
+            if not gid or not k:
+                continue
+            req_m = urllib.request.Request(f"{CBT_URL}/api/v1/group-members?perPage=100&group_id={gid}", headers={"Authorization": f"Bearer {token}"})
+            try:
+                with urllib.request.urlopen(req_m, timeout=10) as resp_m:
+                    m_res = json.loads(resp_m.read().decode())
+                    items = m_res.get("data", {}).get("data", [])
+                    # Urutkan siswa berdasarkan alfabet nama
+                    items_sorted = sorted(items, key=lambda x: ((x.get("peserta") or {}).get("name") or "").upper())
+                    roster[k] = []
+                    for idx, it in enumerate(items_sorted, 1):
+                        p = it.get("peserta") or {}
+                        roster[k].append({
+                            "no": idx,
+                            "no_ujian": p.get("no_ujian", ""),
+                            "nama": p.get("name", "")
+                        })
+            except Exception as e_m:
+                print(f"Warning fetch group {k}: {e_m}")
+                
+        if roster:
+            _roster_cache["data"] = roster
+            _roster_cache["timestamp"] = now
+            return roster
+    except Exception as e:
+        print(f"Warning: Gagal fetch roster dari CBT API ({e}), menggunakan fallback Excel lokal.")
+
+    # 2. Fallback ke file Excel lokal jika API CBT gagal
+    master_roster = {}
+    excel_path = os.path.join(BASE_DIR, "format-group-member-prn-import.xlsx")
+    json_path = os.path.join(BASE_DIR, "master_peserta.json")
+    if os.path.exists(excel_path) and os.path.exists(json_path):
+        try:
+            import xml.etree.ElementTree as ET
+            with open(json_path) as f:
+                master_names = json.load(f)
+            with zipfile.ZipFile(excel_path) as z:
+                tree = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
+                for r in tree.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")[1:]:
+                    cells = {}
+                    for c in r.findall("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c"):
+                        col = "".join([ch for ch in c.get("r") if ch.isalpha()])
+                        is_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}is")
+                        v_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v")
+                        val = ""
+                        if is_elem is not None:
+                            val = "".join([t.text for t in is_elem.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t") if t.text])
+                        elif v_elem is not None:
+                            val = v_elem.text
+                        cells[col] = val
+                    no_u = cells.get("B")
+                    grp = cells.get("C")
+                    if no_u and grp:
+                        if grp not in master_roster:
+                            master_roster[grp] = []
+                        master_roster[grp].append({
+                            "no": int(cells.get("A")) if cells.get("A", "").isdigit() else cells.get("A"),
+                            "no_ujian": no_u,
+                            "nama": master_names.get(no_u, "-")
+                        })
+            _roster_cache["data"] = master_roster
+            _roster_cache["timestamp"] = now
+            return master_roster
+        except Exception as ef:
+            print(f"Error fallback excel: {ef}")
+            
+    return _roster_cache.get("data") or {}
+
 def send_message(chat_id, text, reply_markup=None):
     url = f"{API_BASE}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
@@ -191,38 +291,8 @@ def round_score(val):
 
 def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
     """Generates print-ready PDFs with Kop, student table, absent highlight, and signatures directly from CBT API."""
-    import zipfile
-    import xml.etree.ElementTree as ET
-
-    with open(os.path.join(BASE_DIR, "master_peserta.json")) as f:
-        master_names = json.load(f)
-
-    master_roster = {}
-    with zipfile.ZipFile(os.path.join(BASE_DIR, "format-group-member-prn-import.xlsx")) as z:
-        tree = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
-        for r in tree.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")[1:]:
-            cells = {}
-            for c in r.findall("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c"):
-                col = "".join([ch for ch in c.get("r") if ch.isalpha()])
-                is_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}is")
-                v_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v")
-                val = ""
-                if is_elem is not None:
-                    val = "".join([t.text for t in is_elem.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t") if t.text])
-                elif v_elem is not None:
-                    val = v_elem.text
-                cells[col] = val
-            
-            no_u = cells.get("B")
-            grp = cells.get("C")
-            if no_u and grp:
-                if grp not in master_roster:
-                    master_roster[grp] = []
-                master_roster[grp].append({
-                    "no": int(cells.get("A")) if cells.get("A", "").isdigit() else cells.get("A"),
-                    "no_ujian": no_u,
-                    "nama": master_names.get(no_u, "-")
-                })
+    token = get_cbt_token()
+    master_roster = get_master_roster(token, force_refresh=True)
 
     score_map = {}
     subjects_per_class = {}
@@ -230,7 +300,6 @@ def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
 
     # 1. Direct fetch from CBT API
     try:
-        token = get_cbt_token()
         date_str = target_date or datetime.now().strftime("%Y-%m-%d")
         req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={date_str}&end_date={date_str}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
@@ -686,43 +755,14 @@ def handle_process_jadwal(chat_id, jid, date_str=None):
 def handle_susulan(chat_id):
     send_message(chat_id, "⏳ <b>Sedang memeriksa dan mengumpulkan data siswa susulan...</b>")
 
-    import xml.etree.ElementTree as ET
-
-    with open(os.path.join(BASE_DIR, "master_peserta.json")) as f:
-        master_names = json.load(f)
-
-    master_roster = {}
-    with zipfile.ZipFile(os.path.join(BASE_DIR, "format-group-member-prn-import.xlsx")) as z:
-        tree = ET.fromstring(z.read("xl/worksheets/sheet1.xml"))
-        for r in tree.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row")[1:]:
-            cells = {}
-            for c in r.findall("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}c"):
-                col = "".join([ch for ch in c.get("r") if ch.isalpha()])
-                is_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}is")
-                v_elem = c.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}v")
-                val = ""
-                if is_elem is not None:
-                    val = "".join([t.text for t in is_elem.findall(".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}t") if t.text])
-                elif v_elem is not None:
-                    val = v_elem.text
-                cells[col] = val
-            no_u = cells.get("B")
-            grp = cells.get("C")
-            if no_u and grp:
-                if grp not in master_roster:
-                    master_roster[grp] = []
-                master_roster[grp].append({
-                    "no": int(cells.get("A")) if cells.get("A", "").isdigit() else cells.get("A"),
-                    "no_ujian": no_u,
-                    "nama": master_names.get(no_u, "-")
-                })
+    token = get_cbt_token()
+    master_roster = get_master_roster(token)
 
     score_map = {}
     subjects_per_class = {}
     
     # 1. Direct fetch from CBT API
     try:
-        token = get_cbt_token()
         today_iso = datetime.now().strftime("%Y-%m-%d")
         req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={today_iso}&end_date={today_iso}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
@@ -908,8 +948,8 @@ def handle_monitor(chat_id):
         sedang_list = []
         persiapan_list = []
 
-        with open(os.path.join(BASE_DIR, "master_peserta.json")) as f:
-            master_names = json.load(f)
+        master_roster = get_master_roster(token)
+        master_names = {s["no_ujian"]: s["nama"] for r in master_roster.values() for s in r}
 
         for j in jadwals:
             jid = j["id"]
@@ -1014,8 +1054,8 @@ def handle_force_finish(chat_id, target=None):
             send_message(chat_id, "ℹ️ Tidak ditemukan jadwal ujian yang aktif.")
             return
 
-        with open(os.path.join(BASE_DIR, "master_peserta.json")) as f:
-            master_names = json.load(f)
+        master_roster = get_master_roster(token)
+        master_names = {s["no_ujian"]: s["nama"] for r in master_roster.values() for s in r}
 
         to_finish = []
         for j in jadwals:
