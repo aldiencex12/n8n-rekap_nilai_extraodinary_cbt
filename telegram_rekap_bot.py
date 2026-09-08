@@ -6,12 +6,37 @@ import subprocess
 import urllib.request
 from datetime import datetime, timedelta
 
-BOT_TOKEN = "8987573770:AAGk1bMXJrxXr2HHREkuwrguODCi43Hhh5Y"
-API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook/rekap-nilai"
+def load_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if k not in os.environ:
+                        os.environ[k] = v
+
+load_env()
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8987573770:AAGk1bMXJrxXr2HHREkuwrguODCi43Hhh5Y")
+API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
+CBT_URL = os.environ.get("CBT_URL", "https://assesment.cbt-smpht5.my.id").rstrip("/")
+CBT_EMAIL = os.environ.get("CBT_EMAIL", "admin@shellrean.id")
+CBT_PASSWORD = os.environ.get("CBT_PASSWORD", "criticalpassword")
+N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/rekap-nilai")
+N8N_API_KEY = os.environ.get("N8N_API_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1ZGVhMGNhOS0xNWEyLTQwYzMtYWQ0OC0yOTBlOTBhNDA3ZmMiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiOTk0OTUzNTAtMjI3Mi00MGI1LTlkMzktMzNlNmE2NjA2MWExIiwiaWF0IjoxNzg4Nzk2ODIzfQ.rutODfAQn3CHiaaig_mN_8uT0m6UxW9rzBs8zYv909w")
 PDF_DIR = os.path.join(BASE_DIR, "rekap_pdf")
 CSV_DIR = os.path.join(BASE_DIR, "rekap_per_kelas_mapel")
+
+def get_cbt_token():
+    data = json.dumps({"email": CBT_EMAIL, "password": CBT_PASSWORD}).encode()
+    req = urllib.request.Request(f"{CBT_URL}/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode())["data"]["token"]
 
 def send_message(chat_id, text, reply_markup=None):
     url = f"{API_BASE}/sendMessage"
@@ -206,13 +231,9 @@ def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
 
     # 1. Direct fetch from CBT API
     try:
-        data = json.dumps({"email": "admin@shellrean.id", "password": "criticalpassword"}).encode()
-        req = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            token = json.loads(resp.read().decode())["data"]["token"]
-
+        token = get_cbt_token()
         date_str = target_date or datetime.now().strftime("%Y-%m-%d")
-        req_j = urllib.request.Request(f"https://assesment.cbt-smpht5.my.id/api/v1/jadwals?start_date={date_str}&end_date={date_str}", headers={"Authorization": f"Bearer {token}"})
+        req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={date_str}&end_date={date_str}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             all_jadwals = json.loads(resp.read().decode()).get("data", [])
 
@@ -232,7 +253,7 @@ def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
                 if target_class and k != target_class.upper().strip():
                     continue
 
-                url = f"https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians?jadwal_id={jid}&group_ids={gid}&jurusan_ids={jurusan_id}"
+                url = f"{CBT_URL}/api/v1/hasil-ujians?jadwal_id={jid}&group_ids={gid}&jurusan_ids={jurusan_id}"
                 req_h = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
                 try:
                     with urllib.request.urlopen(req_h, timeout=15) as resp:
@@ -579,18 +600,14 @@ def handle_pdf(chat_id, target_class=None, force_refresh=False, target_date=None
 def handle_pilih_jadwal(chat_id, target_date=None):
     """Mengambil daftar jadwal ujian aktif dari CBT dan menampilkan tombol pilihan jadwal ke proktor."""
     try:
-        data = json.dumps({"email": "admin@shellrean.id", "password": "criticalpassword"}).encode()
-        req = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            token = json.loads(resp.read().decode())["data"]["token"]
-
+        token = get_cbt_token()
         date_str = target_date or datetime.now().strftime("%Y-%m-%d")
         try:
             today_display = datetime.strptime(date_str, "%Y-%m-%d").strftime("%d %B %Y")
         except Exception:
             today_display = date_str
 
-        req_j = urllib.request.Request(f"https://assesment.cbt-smpht5.my.id/api/v1/jadwals?start_date={date_str}&end_date={date_str}", headers={"Authorization": f"Bearer {token}"})
+        req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={date_str}&end_date={date_str}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             jadwals = json.loads(resp.read().decode()).get("data", [])
 
@@ -706,13 +723,9 @@ def handle_susulan(chat_id):
     
     # 1. Direct fetch from CBT API
     try:
-        data = json.dumps({"email": "admin@shellrean.id", "password": "criticalpassword"}).encode()
-        req = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            token = json.loads(resp.read().decode())["data"]["token"]
-
+        token = get_cbt_token()
         today_iso = datetime.now().strftime("%Y-%m-%d")
-        req_j = urllib.request.Request(f"https://assesment.cbt-smpht5.my.id/api/v1/jadwals?start_date={today_iso}&end_date={today_iso}", headers={"Authorization": f"Bearer {token}"})
+        req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={today_iso}&end_date={today_iso}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             jadwals = json.loads(resp.read().decode()).get("data", [])
 
@@ -723,7 +736,7 @@ def handle_susulan(chat_id):
             for grp in j.get("group", []):
                 gid = grp.get("id")
                 k = grp.get("name", "").replace("lt-", "").upper().strip()
-                url = f"https://assesment.cbt-smpht5.my.id/api/v1/hasil-ujians?jadwal_id={jid}&group_ids={gid}&jurusan_ids={jurusan_id}"
+                url = f"{CBT_URL}/api/v1/hasil-ujians?jadwal_id={jid}&group_ids={gid}&jurusan_ids={jurusan_id}"
                 req_h = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
                 try:
                     with urllib.request.urlopen(req_h, timeout=15) as resp:
@@ -872,16 +885,13 @@ def handle_monitor(chat_id):
     send_message(chat_id, "⏳ <b>Menghubungi CBT untuk memantau status ujian peserta secara live...</b>")
     
     try:
-        data = json.dumps({"email": "admin@shellrean.id", "password": "criticalpassword"}).encode()
-        req = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            token = json.loads(resp.read().decode())["data"]["token"]
+        token = get_cbt_token()
 
         today_iso = datetime.now().strftime("%Y-%m-%d")
         yesterday_iso = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         today_full = datetime.now().strftime("%d %B %Y")
         
-        req_j = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/jadwals", headers={"Authorization": f"Bearer {token}"})
+        req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             all_jadwals = json.loads(resp.read().decode()).get("data", [])
 
@@ -906,7 +916,7 @@ def handle_monitor(chat_id):
             jid = j["id"]
             alias = j.get("alias") or j.get("nama") or "Ujian"
             
-            url = f"https://assesment.cbt-smpht5.my.id/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
+            url = f"{CBT_URL}/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
             req_u = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
             try:
                 with urllib.request.urlopen(req_u, timeout=10) as resp:
@@ -986,16 +996,13 @@ def handle_force_finish(chat_id, target=None):
     send_message(chat_id, "⏳ <b>Menghubungi CBT untuk memproses Force Finish ujian siswa...</b>")
     
     try:
-        data = json.dumps({"email": "admin@shellrean.id", "password": "criticalpassword"}).encode()
-        req = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/token/generate", data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            token = json.loads(resp.read().decode())["data"]["token"]
+        token = get_cbt_token()
 
         today_iso = datetime.now().strftime("%Y-%m-%d")
         yesterday_iso = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         
         # Ambil daftar seluruh jadwal
-        req_j = urllib.request.Request("https://assesment.cbt-smpht5.my.id/api/v1/jadwals", headers={"Authorization": f"Bearer {token}"})
+        req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             all_jadwals = json.loads(resp.read().decode()).get("data", [])
 
@@ -1015,7 +1022,7 @@ def handle_force_finish(chat_id, target=None):
         for j in jadwals:
             jid = j["id"]
             alias = j.get("alias") or j.get("nama") or "Ujian"
-            url = f"https://assesment.cbt-smpht5.my.id/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
+            url = f"{CBT_URL}/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
             req_u = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
             try:
                 with urllib.request.urlopen(req_u, timeout=10) as resp:
@@ -1066,7 +1073,7 @@ def handle_force_finish(chat_id, target=None):
             batch_ids = [s["id"] for s in batch]
             finish_payload = json.dumps({"id": batch_ids}).encode()
             f_req = urllib.request.Request(
-                "https://assesment.cbt-smpht5.my.id/api/v1/siswa-ujians-finish",
+                f"{CBT_URL}/api/v1/siswa-ujians-finish",
                 data=finish_payload,
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
             )
@@ -1104,6 +1111,20 @@ def handle_force_finish(chat_id, target=None):
     except Exception as e:
         print(f"Error handle_force_finish: {e}")
         send_message(chat_id, f"❌ Terjadi kesalahan saat memproses Force Finish: {e}")
+
+def handle_git_update(chat_id):
+    send_message(chat_id, "🔄 <b>Sedang memeriksa dan mengunduh pembaruan kode dari GitHub...</b>")
+    try:
+        res = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, cwd=BASE_DIR, timeout=30)
+        output = (res.stdout + "\n" + res.stderr).strip()
+        if "Already up to date" in output or "Sudah mutakhir" in output:
+            send_message(chat_id, f"✅ <b>Bot sudah menggunakan versi terbaru!</b>\n<pre>{output}</pre>")
+        else:
+            send_message(chat_id, f"🚀 <b>Kode berhasil diperbarui dari GitHub!</b>\n<pre>{output[:1500]}</pre>\n\n<i>Merestart layanan bot...</i>")
+            time.sleep(1)
+            subprocess.run(["systemctl", "--user", "restart", "telegram-rekap-bot.service"])
+    except Exception as e:
+        send_message(chat_id, f"❌ Gagal melakukan update kode: {e}")
 
 def start_bot():
     print("🤖 Telegram Rekap Bot aktif dan mendengarkan pesan...")
@@ -1226,7 +1247,9 @@ def start_bot():
                 elif cmd in ["/pdf"]:
                     tgt = None if (arg and arg.lower() == "all") else arg
                     threading.Thread(target=handle_pdf, args=(chat_id, tgt, False, None), daemon=True).start()
-                elif cmd in ["/rekap", "/refresh", "/update"] or lower_text in ["rekap", "refresh", "update"]:
+                elif cmd in ["/update", "/gitpull"] or lower_text in ["update bot", "git pull", "gitpull"]:
+                    threading.Thread(target=handle_git_update, args=(chat_id,), daemon=True).start()
+                elif cmd in ["/rekap", "/refresh"] or lower_text in ["rekap", "refresh"]:
                     tgt_date = None
                     if arg:
                         if "-" in arg and len(arg) == 10:

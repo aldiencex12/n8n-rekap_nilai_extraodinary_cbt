@@ -4,3 +4,4 @@ __pycache__/
 *.zip
 rekap_pdf/
 .system_generated/
+.env
