@@ -161,8 +161,35 @@ Jika Anda menjalankan `/rekap 2026-09-07` (Hari 1: IPA & PJOK), lalu menjalankan
 ### Skenario 6: Butuh Lembar Presensi Khusus untuk Ruang Ujian Susulan
 * **Masalah:** Pengawas ruang susulan membutuhkan berkas daftar peserta yang berhak mengikuti susulan beserta kolom paraf hadir.
 * **Solusi:**
-  - Ketik `/susulan` atau sentuh **`📋 Rekap Susulan`**.
+  - Ketik `/susulan` atau sentuh **`📋 Rekap Susulan`** (atau `/susulan 2026-09-10` untuk tanggal kemarin).
   - Dokumen PDF resmi siap cetak lengkap dengan nama, nomor peserta, mata pelajaran, dan kolom tanda tangan pengawas ruangan akan langsung dikirim oleh bot.
+
+---
+
+### Skenario 7: Ujian Mapel Agama (5 Agama Berbeda di Satu Sekolah)
+* **Masalah:** Saat diadakan ujian Agama Buddha atau Kristen, siswa dari agama lain masuk ke daftar susulan dan rekap nilai dipenuhi status *Tidak Hadir*.
+* **Solusi:**
+  - Bot secara cerdas memfilter siswa berdasarkan agama di master data CBT.
+  - Untuk mapel Buddha, hanya siswa Buddha yang dimuat di PDF rekap nilai dan hanya siswa Buddha yang divalidasi susulan.
+  - Kelas tanpa siswa pemeluk agama tersebut otomatis dilewati.
+
+---
+
+### Skenario 8: Akun Uji Coba Proktor (coba7, coba8, coba9)
+* **Masalah:** Akun simulasi soal ujian muncul di daftar siswa kelas dan daftar susulan.
+* **Solusi:**
+  - Bot otomatis mengecualikan akun `coba7`, `coba8`, `coba9` dari seluruh tabel cetak, susulan, dan monitoring.
+  - Nomor urut absen di lembar cetak otomatis berurutan rapi tanpa ada celah nomor hilang.
+  - Akun tambahan bisa dikonfigurasi melalui variabel `EXCLUDED_USERS` di file `.env`.
+
+---
+
+### Skenario 9: Pengingat Otomatis Waktu Ujian Selesai (Auto-Notification)
+* **Masalah:** Proktor lupa waktu selesai ujian atau lupa melakukan submit siswa yang tertahan.
+* **Solusi:**
+  - Bot otomatis memantau jadwal ujian CBT setiap menit.
+  - **H-10 Menit:** Bot menyiarkan pesan peringatan sisa waktu ujian beserta jumlah siswa yang sudah/belum selesai.
+  - **Sesi Selesai:** Bot mengirim notifikasi penutupan sesi lengkap dengan tombol langsung *Force Finish* dan *Cetak Rekap Nilai*.
 
 ---
 
@@ -177,5 +204,7 @@ Jika Anda menjalankan `/rekap 2026-09-07` (Hari 1: IPA & PJOK), lalu menjalankan
 | `/rekap YYYY-MM-DD` | Tarik nilai ujian tanggal tertentu |
 | `8D` *(atau kelas lain)* | Unduh PDF nilai kelas tersebut |
 | `/pdf all` | Unduh semua kelas dalam bentuk ZIP |
-| `/susulan` | Cetak berkas resmi daftar siswa susulan |
+| `/susulan` | Cetak berkas resmi daftar siswa susulan hari ini |
+| `/susulan YYYY-MM-DD` | Cetak daftar siswa susulan tanggal tertentu |
+| `/update` | Tarik update kode terbaru dari GitHub & restart |
 | `/reset` | Bersihkan file PDF lokal laptop |

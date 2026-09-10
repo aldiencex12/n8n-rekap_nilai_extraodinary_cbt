@@ -26,6 +26,30 @@ Dihasilkan melalui perintah `/susulan` atau tombol **📋 Cek Susulan**. Otomati
 
 ---
 
+---
+
+## ✨ Fitur Unggulan Terbaru
+
+1. 🎯 **Filter Cerdas Siswa Mapel Agama (5 Agama)**
+   * Otomatis mengenali mapel agama (Islam, Protestan/Kristen, Katolik, Hindu, Buddha) dari nama jadwal ujian CBT.
+   * Pada laporan rekap nilai PDF, tabel hanya memuat siswa penganut agama tersebut.
+   * Pada daftar susulan, siswa dari agama lain **tidak akan pernah keliru dimasukkan ke daftar susulan**.
+
+2. 🛡️ **Pengecualian Akun Uji Coba (`EXCLUDED_USERS`)**
+   * Akun testing/percobaan proktor (seperti `coba7`, `coba8`, `coba9`) otomatis dikecualikan dari roster, rekap PDF, susulan, dan monitoring.
+   * Nomor absen siswa di tabel cetak otomatis ditata ulang secara berurutan dan rapi.
+
+3. ⏰ **Background Auto-Monitor & Notifikasi Ujian Otomatis**
+   * Bot memantau jadwal ujian aktif secara otomatis setiap menit.
+   * **H-10 Menit:** Mengirim peringatan bahwa ujian tersisa 10 menit lagi beserta jumlah siswa yang sudah/belum submit.
+   * **Sesi Selesai:** Mengirim laporan penutupan sesi ujian lengkap dengan tombol interaktif untuk *Force Finish*, *Buat Rekap PDF*, dan *Cek Susulan*.
+   * Dapat disiarkan otomatis ke seluruh proktor atau ke Grup Telegram Panitia melalui `NOTIF_CHAT_ID`.
+
+4. 📋 **Pemeriksaan Susulan Multi-Tanggal**
+   * Mendukung pengecekan susulan untuk tanggal sebelumnya dengan perintah `/susulan YYYY-MM-DD` (contoh: `/susulan 2026-09-10`).
+
+---
+
 ## ⚡ Instalasi Cepat (1 Langkah)
 
 Untuk memasang bot di server baru atau laptop proktor (Linux Ubuntu / Debian):
@@ -66,6 +90,12 @@ CBT_URL=https://cbt.sekolahanda.sch.id
 # 3. Akun Login Admin CBT
 CBT_EMAIL=admin_cbt@sekolah.sch.id
 CBT_PASSWORD=your_password_here
+
+# 4. (Opsional) Akun Uji Coba yang Dikecualikan (pisahkan dengan koma)
+EXCLUDED_USERS=coba7,coba8,coba9
+
+# 5. (Opsional) Chat ID Proktor atau ID Grup Telegram untuk Siaran Notifikasi Selesai Ujian
+NOTIF_CHAT_ID=-100xxxxxxxxxx
 ```
 
 Setelah mengubah file `.env`, cukup restart bot:
