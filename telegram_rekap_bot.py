@@ -846,7 +846,7 @@ def handle_process_jadwal(chat_id, jid, date_str=None):
     finally:
         ACTIVE_CHATS.discard(chat_id)
 
-def handle_susulan(chat_id):
+def handle_susulan(chat_id, target_date=None):
     send_message(chat_id, "⏳ <b>Sedang memeriksa dan mengumpulkan data siswa susulan...</b>")
 
     token = get_cbt_token()
@@ -857,10 +857,24 @@ def handle_susulan(chat_id):
     
     # 1. Direct fetch from CBT API
     try:
-        today_iso = datetime.now().strftime("%Y-%m-%d")
+        today_iso = target_date or datetime.now().strftime("%Y-%m-%d")
+        try:
+            today_display = datetime.strptime(today_iso, "%Y-%m-%d").strftime("%d %B %Y")
+        except Exception:
+            today_display = today_iso
+
         req_j = urllib.request.Request(f"{CBT_URL}/api/v1/jadwals?start_date={today_iso}&end_date={today_iso}", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_j, timeout=10) as resp:
             jadwals = json.loads(resp.read().decode()).get("data", [])
+
+        if not jadwals:
+            send_message(
+                chat_id, 
+                f"ℹ️ <b>Tidak ditemukan jadwal ujian CBT untuk tanggal {today_display}.</b>\n\n"
+                f"Ketik <code>/susulan YYYY-MM-DD</code> (contoh: <code>/susulan 2026-09-10</code>) untuk memeriksa susulan tanggal lain.",
+                reply_markup=get_main_menu()
+            )
+            return
 
         jurusan_id = "3e41ce1d-af1b-4d2c-80e1-46f6dd261403"
         for j in jadwals:
@@ -914,7 +928,7 @@ def handle_susulan(chat_id):
     text_lines = [
         "📋 <b>DAFTAR PESERTA UJIAN SUSULAN (BELUM UJIAN)</b>",
         "🏫 <i>SMP Hang Tuah 5 Sidoarjo</i>",
-        f"🗓️ Tanggal: {datetime.now().strftime('%d %B %Y')}",
+        f"🗓️ Tanggal: {today_display}",
         "━━━━━━━━━━━━━━━━━━━━"
     ]
     
@@ -937,8 +951,11 @@ def handle_susulan(chat_id):
     send_message(chat_id, "\n".join(text_lines))
 
     # Generate print-ready PDF for susulan
-    today_str = datetime.now().strftime("%d-%m-%Y")
-    today_full = datetime.now().strftime("%d %B %Y")
+    try:
+        today_str = datetime.strptime(today_iso, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except Exception:
+        today_str = today_iso
+    today_full = today_display
     
     rows_html = []
     for idx, it in enumerate(susulan_list, 1):
@@ -1366,7 +1383,8 @@ def start_bot():
                 elif cmd in ["/monitor", "/pantau", "/status"] or lower_text in ["monitor", "pantau", "status"]:
                     threading.Thread(target=handle_monitor, args=(chat_id,), daemon=True).start()
                 elif cmd in ["/susulan", "/absen"] or lower_text in ["susulan", "absen"]:
-                    threading.Thread(target=handle_susulan, args=(chat_id,), daemon=True).start()
+                    tgt_date = arg if (arg and "-" in arg and len(arg) == 10) else None
+                    threading.Thread(target=handle_susulan, args=(chat_id, tgt_date), daemon=True).start()
                 elif cmd in ["/reset", "/clean", "/hapus"] or lower_text in ["reset", "clean", "hapus"]:
                     cnt = 0
                     for f in os.listdir(PDF_DIR):
