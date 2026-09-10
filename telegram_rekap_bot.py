@@ -280,6 +280,171 @@ def answer_callback(callback_query_id, text=None):
         print(f"Error answer_callback: {e}")
         return None
 
+# ==============================================================================
+# SISTEM NOTIFIKASI OTOMATIS UJIAN CBT
+# ==============================================================================
+KNOWN_CHATS_FILE = os.path.join(BASE_DIR, "known_chats.json")
+KNOWN_CHATS = set()
+
+def load_known_chats():
+    global KNOWN_CHATS
+    if os.path.exists(KNOWN_CHATS_FILE):
+        try:
+            with open(KNOWN_CHATS_FILE, "r") as f:
+                KNOWN_CHATS = set(json.load(f))
+        except Exception:
+            pass
+    env_notif = os.environ.get("NOTIF_CHAT_ID", "").strip()
+    if env_notif:
+        for cid in env_notif.split(","):
+            if cid.strip():
+                try:
+                    KNOWN_CHATS.add(int(cid.strip()))
+                except ValueError:
+                    KNOWN_CHATS.add(cid.strip())
+
+load_known_chats()
+
+def register_chat(chat_id):
+    """Mendaftarkan chat_id agar otomatis menerima siaran notifikasi ujian."""
+    global KNOWN_CHATS
+    if chat_id and chat_id not in KNOWN_CHATS:
+        KNOWN_CHATS.add(chat_id)
+        try:
+            with open(KNOWN_CHATS_FILE, "w") as f:
+                json.dump(list(KNOWN_CHATS), f)
+        except Exception:
+            pass
+
+def broadcast_notification(text, reply_markup=None):
+    """Mengirim pesan notifikasi ke seluruh chat/grup proktor yang terdaftar."""
+    for cid in list(KNOWN_CHATS):
+        try:
+            send_message(cid, text, reply_markup=reply_markup)
+            time.sleep(0.3)
+        except Exception as e:
+            print(f"Error broadcast to {cid}: {e}")
+
+_notified_events = set()
+
+def auto_exam_monitor_loop():
+    """Background worker yang memantau jadwal ujian aktif dan otomatis mengirim notifikasi H-10 dan saat sesi selesai."""
+    global _notified_events
+    print("⏰ Background Auto-Monitor Ujian aktif (cek per 60 detik)...")
+    while True:
+        try:
+            time.sleep(60)
+            token = get_cbt_token()
+            today_iso = datetime.now().strftime("%Y-%m-%d")
+            
+            req_j = urllib.request.Request(
+                f"{CBT_URL}/api/v1/jadwals?start_date={today_iso}&end_date={today_iso}",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            with urllib.request.urlopen(req_j, timeout=10) as resp:
+                jadwals = json.loads(resp.read().decode()).get("data", [])
+                
+            now = datetime.now()
+            for j in jadwals:
+                jid = j.get("id")
+                if not jid:
+                    continue
+                alias = j.get("alias") or j.get("nama") or "Ujian"
+                mulai_str = j.get("mulai") # e.g. "07:30"
+                lama_sec = j.get("lama") or 3600 # e.g. 3600 detik
+                
+                if not mulai_str or ":" not in mulai_str:
+                    continue
+                    
+                try:
+                    mulai_dt = datetime.strptime(f"{today_iso} {mulai_str}", "%Y-%m-%d %H:%M")
+                    end_dt = mulai_dt + timedelta(seconds=int(lama_sec))
+                except Exception:
+                    continue
+                    
+                diff_sec = (end_dt - now).total_seconds()
+                
+                # 1. Peringatan 10 Menit Sebelum Selesai (antara 1 sampai 10 menit tersisa)
+                warn_key = (jid, today_iso, "warn_10m")
+                if 0 < diff_sec <= 600 and warn_key not in _notified_events:
+                    _notified_events.add(warn_key)
+                    selesai_cnt = 0
+                    sedang_cnt = 0
+                    try:
+                        url_u = f"{CBT_URL}/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
+                        req_u = urllib.request.Request(url_u, headers={"Authorization": f"Bearer {token}"})
+                        with urllib.request.urlopen(req_u, timeout=10) as resp_u:
+                            items_u = json.loads(resp_u.read().decode()).get("data", {}).get("data", [])
+                        for su in items_u:
+                            p = su.get("peserta", {})
+                            if is_excluded_user(p.get("no_ujian"), p.get("name")):
+                                continue
+                            if su.get("status_ujian") == 3:
+                                selesai_cnt += 1
+                            elif su.get("status_ujian") == 1:
+                                sedang_cnt += 1
+                    except Exception:
+                        pass
+                        
+                    sisa_menit = max(1, int(diff_sec // 60))
+                    text_warn = (
+                        f"⚠️ <b>PERINGATAN WAKTU UJIAN CBT</b>\n\n"
+                        f"📖 <b>Mata Pelajaran:</b> {alias}\n"
+                        f"⏰ <b>Sisa Waktu:</b> ±{sisa_menit} Menit lagi (Berakhir pukul {end_dt.strftime('%H:%M')} WIB)\n\n"
+                        f"📊 <b>Status Sementara:</b>\n"
+                        f"• Selesai (Submit): <b>{selesai_cnt}</b> siswa\n"
+                        f"• Masih Mengerjakan: <b>{sedang_cnt}</b> siswa\n\n"
+                        f"<i>Mohon proktor bersiap untuk mengingatkan siswa di ruang ujian.</i>"
+                    )
+                    markup_warn = {
+                        "inline_keyboard": [
+                            [{"text": "⏳ Pantau Live Peserta", "callback_data": "cmd_monitor"}]
+                        ]
+                    }
+                    broadcast_notification(text_warn, reply_markup=markup_warn)
+                
+                # 2. Notifikasi Saat Selesai Ujian (dalam rentang 0 s.d. 10 menit setelah jam selesai)
+                ended_key = (jid, today_iso, "ended")
+                if -600 <= diff_sec <= 0 and ended_key not in _notified_events:
+                    _notified_events.add(ended_key)
+                    selesai_cnt = 0
+                    sedang_cnt = 0
+                    try:
+                        url_u = f"{CBT_URL}/api/v1/siswa-ujians?page=1&perPage=250&jadwal_id={jid}"
+                        req_u = urllib.request.Request(url_u, headers={"Authorization": f"Bearer {token}"})
+                        with urllib.request.urlopen(req_u, timeout=10) as resp_u:
+                            items_u = json.loads(resp_u.read().decode()).get("data", {}).get("data", [])
+                        for su in items_u:
+                            p = su.get("peserta", {})
+                            if is_excluded_user(p.get("no_ujian"), p.get("name")):
+                                continue
+                            if su.get("status_ujian") == 3:
+                                selesai_cnt += 1
+                            elif su.get("status_ujian") == 1:
+                                sedang_cnt += 1
+                    except Exception:
+                        pass
+                        
+                    text_ended = (
+                        f"🔔 <b>SESI UJIAN CBT TELAH BERAKHIR!</b>\n\n"
+                        f"📖 <b>Mata Pelajaran:</b> {alias}\n"
+                        f"⏰ <b>Jadwal:</b> {mulai_str} - {end_dt.strftime('%H:%M')} WIB\n\n"
+                        f"📊 <b>Laporan Akhir Sesi:</b>\n"
+                        f"• Selesai (Submit): <b>{selesai_cnt}</b> siswa\n"
+                        f"• Belum Submit: <b>{sedang_cnt}</b> siswa\n\n"
+                        f"<i>Silakan pilih tindakan cepat di bawah ini:</i>"
+                    )
+                    buttons = []
+                    if sedang_cnt > 0:
+                        buttons.append([{"text": f"⚡ Force Finish ({sedang_cnt} Siswa Belum Submit)", "callback_data": "cmd_forcefinish_all"}])
+                    buttons.append([{"text": "🔄 Buat Rekap Nilai PDF", "callback_data": f"r_jid_{jid}"}])
+                    buttons.append([{"text": "📋 Cek Siswa Susulan", "callback_data": "cmd_susulan"}])
+                    
+                    broadcast_notification(text_ended, reply_markup={"inline_keyboard": buttons})
+
+        except Exception as e:
+            time.sleep(10)
+
 def init_bot_commands():
     try:
         commands = [
@@ -1310,6 +1475,7 @@ def handle_git_update(chat_id):
 def start_bot():
     print("🤖 Telegram Rekap Bot aktif dan mendengarkan pesan...")
     init_bot_commands()
+    threading.Thread(target=auto_exam_monitor_loop, daemon=True).start()
     offset = 0
     while True:
         try:
@@ -1328,6 +1494,7 @@ def start_bot():
                     cb_data = cb.get("data", "")
                     cb_chat = cb.get("message", {}).get("chat", {})
                     cb_chat_id = cb_chat.get("id")
+                    register_chat(cb_chat_id)
                     cb_msg_id = cb.get("message", {}).get("message_id")
                     answer_callback(cb_id)
 
@@ -1385,6 +1552,7 @@ def start_bot():
                 if not text or not chat_id:
                     continue
                 
+                register_chat(chat_id)
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] Pesan dari {first_name} ({chat_id}): {text}")
                 
                 parts = text.split()
