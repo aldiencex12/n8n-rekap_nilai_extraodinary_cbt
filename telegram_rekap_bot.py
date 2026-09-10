@@ -30,6 +30,18 @@ CBT_PASSWORD = os.environ.get("CBT_PASSWORD", "").strip()
 N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/rekap-nilai")
 N8N_API_KEY = os.environ.get("N8N_API_KEY", "")
 PDF_DIR = os.path.join(BASE_DIR, "rekap_pdf")
+EXCLUDED_USERS = set(
+    x.strip().lower() for x in os.environ.get("EXCLUDED_USERS", "coba7,coba8,coba9").split(",") if x.strip()
+)
+
+def is_excluded_user(no_ujian, nama=""):
+    """Mengecek apakah nomor ujian atau nama termasuk dalam daftar akun uji coba yang dikecualikan."""
+    nu = (no_ujian or "").strip().lower()
+    nm = (nama or "").strip().lower()
+    for ex in EXCLUDED_USERS:
+        if ex and (nu == ex or nm == ex or nu.startswith(f"{ex}_") or nm.startswith(f"{ex}_")):
+            return True
+    return False
 
 if not BOT_TOKEN:
     print("❌ PERINGATAN: TELEGRAM_BOT_TOKEN belum diisi di file .env!")
@@ -156,15 +168,20 @@ def get_master_roster(token=None, force_refresh=False):
                     # Urutkan siswa berdasarkan alfabet nama
                     items_sorted = sorted(items, key=lambda x: ((x.get("peserta") or {}).get("name") or "").upper())
                     roster[k] = []
-                    for idx, it in enumerate(items_sorted, 1):
+                    idx = 1
+                    for it in items_sorted:
                         p = it.get("peserta") or {}
                         nu = p.get("no_ujian", "")
+                        nm = p.get("name", "")
+                        if is_excluded_user(nu, nm):
+                            continue
                         roster[k].append({
                             "no": idx,
                             "no_ujian": nu,
-                            "nama": p.get("name", ""),
+                            "nama": nm,
                             "agama": agama_map.get(nu.strip(), "")
                         })
+                        idx += 1
             except Exception as e_m:
                 print(f"Warning fetch group {k}: {e_m}")
                 
@@ -201,12 +218,15 @@ def get_master_roster(token=None, force_refresh=False):
                     no_u = cells.get("B")
                     grp = cells.get("C")
                     if no_u and grp:
+                        nm_u = master_names.get(no_u, "-")
+                        if is_excluded_user(no_u, nm_u):
+                            continue
                         if grp not in master_roster:
                             master_roster[grp] = []
                         master_roster[grp].append({
                             "no": int(cells.get("A")) if cells.get("A", "").isdigit() else cells.get("A"),
                             "no_ujian": no_u,
-                            "nama": master_names.get(no_u, "-")
+                            "nama": nm_u
                         })
             _roster_cache["data"] = master_roster
             _roster_cache["timestamp"] = now
@@ -1081,6 +1101,9 @@ def handle_monitor(chat_id):
                     nu = p.get("no_ujian", "")
                     nm = p.get("name") or master_names.get(nu, "-")
                     
+                    if is_excluded_user(nu, nm):
+                        continue
+                    
                     if st == 3:
                         total_selesai += 1
                     elif st == 1:
@@ -1191,6 +1214,9 @@ def handle_force_finish(chat_id, target=None):
                         if target and target.lower() not in ["all", "semua"]:
                             tgt = target.lower()
                             if tgt not in nu.lower() and tgt not in nm.lower():
+                                continue
+                        else:
+                            if is_excluded_user(nu, nm):
                                 continue
                                 
                         to_finish.append({
