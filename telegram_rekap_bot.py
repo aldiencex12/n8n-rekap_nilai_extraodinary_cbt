@@ -46,6 +46,60 @@ def get_cbt_token():
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read().decode())["data"]["token"]
 
+def get_mapel_target_agama(mapel_name):
+    """
+    Mendeteksi apakah nama mapel spesifik untuk agama tertentu.
+    Returns: 'Islam', 'Protestan', 'Katolik', 'Hindu', 'Budha', atau None jika mapel umum.
+    """
+    if not mapel_name:
+        return None
+    m = mapel_name.lower().replace("-", " ").replace("_", " ")
+    
+    # Deteksi Buddha
+    if any(w in m for w in ["budha", "buddha"]):
+        return "Budha"
+    # Deteksi Hindu
+    if "hindu" in m:
+        return "Hindu"
+    # Deteksi Katolik
+    if "katolik" in m:
+        return "Katolik"
+    # Deteksi Kristen / Protestan
+    if any(w in m for w in ["kristen", "protestan", "pak", "pa kristen"]):
+        return "Protestan"
+    # Deteksi Islam
+    if any(w in m for w in ["islam", "pai", "pa islam"]):
+        return "Islam"
+        
+    return None
+
+def is_student_eligible_for_mapel(student_agama, mapel_name):
+    """
+    Memeriksa apakah siswa berhak/wajib mengikuti mapel tertentu berdasarkan agamanya.
+    Jika mapel umum (bukan agama), mengembalikan True.
+    """
+    target = get_mapel_target_agama(mapel_name)
+    if not target:
+        return True # Mapel umum (MTK, IPA, B. Indo, dll), semua siswa wajib ikut
+    
+    s_ag = (student_agama or "").strip().lower()
+    if not s_ag:
+        # Jika data agama siswa belum tercatat, anggap berhak agar tidak hilang
+        return True
+        
+    if target == "Islam":
+        return s_ag == "islam"
+    elif target in ["Protestan", "Kristen"]:
+        return s_ag in ["protestan", "kristen"]
+    elif target == "Katolik":
+        return s_ag == "katolik"
+    elif target == "Hindu":
+        return s_ag == "hindu"
+    elif target in ["Budha", "Buddha"]:
+        return s_ag in ["budha", "buddha"]
+        
+    return True
+
 _roster_cache = {
     "data": None,
     "timestamp": 0
@@ -62,6 +116,20 @@ def get_master_roster(token=None, force_refresh=False):
     try:
         if not token:
             token = get_cbt_token()
+            
+        # Ambil pemetaan agama siswa langsung dari master data /api/v1/pesertas
+        agama_map = {}
+        try:
+            req_p = urllib.request.Request(f"{CBT_URL}/api/v1/pesertas?perPage=1000", headers={"Authorization": f"Bearer {token}"})
+            with urllib.request.urlopen(req_p, timeout=10) as resp_p:
+                peserta_data = json.loads(resp_p.read().decode()).get("data", {}).get("data", [])
+                for p_item in peserta_data:
+                    nu = p_item.get("no_ujian")
+                    ag = p_item.get("agama_name")
+                    if nu and ag:
+                        agama_map[nu.strip()] = ag.strip()
+        except Exception as ep:
+            print(f"Warning: Gagal fetch data agama peserta ({ep})")
         
         req_g = urllib.request.Request(f"{CBT_URL}/api/v1/groups", headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req_g, timeout=10) as resp:
@@ -90,10 +158,12 @@ def get_master_roster(token=None, force_refresh=False):
                     roster[k] = []
                     for idx, it in enumerate(items_sorted, 1):
                         p = it.get("peserta") or {}
+                        nu = p.get("no_ujian", "")
                         roster[k].append({
                             "no": idx,
-                            "no_ujian": p.get("no_ujian", ""),
-                            "nama": p.get("name", "")
+                            "no_ujian": nu,
+                            "nama": p.get("name", ""),
+                            "agama": agama_map.get(nu.strip(), "")
                         })
             except Exception as e_m:
                 print(f"Warning fetch group {k}: {e_m}")
@@ -391,17 +461,31 @@ def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
 
     classes_to_process = [target_class] if (target_class and target_class in subjects_per_class) else sorted(subjects_per_class.keys())
     generated_files = []
+    classes_with_files = set()
 
     for k in classes_to_process:
         roster = master_roster.get(k, [])
         roster.sort(key=lambda x: x["no"] if isinstance(x["no"], int) else 999)
         
         for m in sorted(subjects_per_class[k]):
+            # Opsi A: Jika mapel agama, hanya tampilkan siswa penganut agama tersebut
+            target_agama = get_mapel_target_agama(m)
+            if target_agama:
+                effective_roster = [
+                    s for s in roster 
+                    if is_student_eligible_for_mapel(s.get("agama"), m) or (k, m, s["no_ujian"]) in score_map
+                ]
+            else:
+                effective_roster = roster
+
+            if not effective_roster:
+                continue
+
             table_rows = []
             hadir_cnt = 0
             absen_cnt = 0
             
-            for idx, s in enumerate(roster):
+            for idx, s in enumerate(effective_roster):
                 key = (k, m, s["no_ujian"])
                 if key in score_map:
                     val = round_score(score_map[key])
@@ -594,10 +678,11 @@ def generate_pdfs(target_class=None, target_jadwal_id=None, target_date=None):
                 
             subprocess.run(["google-chrome", "--headless", "--disable-gpu", "--no-sandbox", "--no-pdf-header-footer", f"--print-to-pdf={pdf_path}", html_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             generated_files.append(pdf_filename)
+            classes_with_files.add(k)
 
     return {
         "success": bool(generated_files),
-        "classes": classes_to_process,
+        "classes": sorted(list(classes_with_files)) if classes_with_files else classes_to_process,
         "files": generated_files,
         "mapels": list(mapels_found)
     }
@@ -810,6 +895,9 @@ def handle_susulan(chat_id):
         roster = master_roster.get(k, [])
         for m in sorted(subjects_per_class[k]):
             for s in roster:
+                # Lewati siswa yang agamanya tidak sesuai mapel ujian ini
+                if not is_student_eligible_for_mapel(s.get("agama"), m):
+                    continue
                 if (k, m, s["no_ujian"]) not in score_map:
                     susulan_list.append({
                         "kelas": k,
